@@ -47,6 +47,9 @@ from analyze_anisotropy import (
     linear_sigma,
 )
 
+import figure_cache
+import pred_data_loaders as _pdl
+import stars2dm_paths
 from pred_data_loaders import (
     DEFAULT_PRED_ROOT,
     combine_draws,
@@ -591,6 +594,8 @@ def plot_galaxy_stamp_grid(
     save_path=None,
     save_dpi=200,
     show_suptitle=False,
+    cache_dir=None,
+    cache_mode="auto",
 ):
     """Grid of stamp-sized panels, one per randomly sampled galaxy, all the same panel_type.
 
@@ -622,17 +627,51 @@ def plot_galaxy_stamp_grid(
         n_galaxies = len(galaxy_ids)
 
     pattern = file_pattern or default_draws_file_pattern(version_tag, num_draws)
-    draws_data = load_pred_per_galaxy(
-        pred_root,
-        version_tag,
-        num_draws=num_draws,
-        galaxy_indices=galaxy_ids,
-        draw_slice=draw_slice,
-        channel=channel,
-        file_pattern=pattern,
-    )
-    draws_ids = draws_data['galaxy_ids']
-    draws_arr = draws_data['x_pred_draws']
+
+    # The stamp grids read draws for 16 galaxies and no more, so the cache for them is
+    # simply those galaxies' draws. Sampling is seeded and depends on the galaxy pool, so
+    # the resolved ids go into the key: a cache built for one seed cannot answer another.
+    cache = None
+    if cache_mode != "off":
+        cache = figure_cache.FigureCache(
+            cache_dir or stars2dm_paths.CACHE_ROOT,
+            cache_mode,
+            kind="stamp",
+            version=version_tag,
+            pattern=pattern,
+            num_draws=num_draws,
+            galaxies=",".join(str(int(g)) for g in galaxy_ids),
+            draw_slice=draw_slice,
+            channel=channel,
+            ensemble=_pdl.ENSEMBLE_COMBINE,
+            profile_agg=_pdl.PROFILE_AGG,
+        )
+        cache.require()
+
+    cached_ids = cache.cached_galaxy_ids() if cache is not None else []
+    if cache is not None and cached_ids == sorted(int(g) for g in galaxy_ids):
+        print(f"Reading stamp draws from cache: {cache.describe()}")
+        draws_ids = np.array(cached_ids)
+        draws_arr = np.stack([cache.load_galaxy_draws(g) for g in cached_ids])
+    else:
+        draws_data = load_pred_per_galaxy(
+            pred_root,
+            version_tag,
+            num_draws=num_draws,
+            galaxy_indices=galaxy_ids,
+            draw_slice=draw_slice,
+            channel=channel,
+            file_pattern=pattern,
+        )
+        draws_ids = draws_data['galaxy_ids']
+        draws_arr = draws_data['x_pred_draws']
+        if cache is not None and cache.writable:
+            for row, gid in enumerate(draws_ids):
+                cache.save_galaxy_draws(gid, draws_arr[row])
+            # A stamp entry has no population arrays, but meta.json is what makes the
+            # directory self-describing, so write an empty profiles entry to produce it.
+            cache.save_profiles({'galaxy_ids': np.asarray(draws_ids)}, None)
+            print(f"Wrote stamp draws to cache: {cache.describe()}")
 
     if panel_type in _ANISOTROPY_PANELS:
         # Geometry only, so it is built once here rather than per galaxy per draw.
@@ -815,6 +854,8 @@ def main():
         '--profile-agg', type=str, choices=['mean', 'median'], default=None,
         help='How pixels are combined inside an annulus (default: mean).',
     )
+    figure_cache.add_cache_arguments(parser, default_root=str(stars2dm_paths.CACHE_ROOT))
+
     args = parser.parse_args()
 
     apply_paper_style()
@@ -841,6 +882,8 @@ def main():
             save_path=save_path,
             save_dpi=args.save_dpi,
             show_suptitle=args.suptitle,
+            cache_dir=args.cache_dir,
+            cache_mode=args.cache_mode,
         )
 
 

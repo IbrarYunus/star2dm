@@ -22,6 +22,18 @@
 # Output goes to $STARS2DM_FIG_DIR (default data/figures/), with a PNG preview of each figure
 # alongside. Compare against reference_figures/ to confirm a reproduction.
 #
+# CACHE_MODE controls the reduced-data cache (see src/paperfigs/figure_cache.py):
+#
+#   auto   (default) use the cache if it is there, otherwise read the draws and write it
+#   read   require the cache -- this is the path for a reader who downloaded the ~150 MB
+#          cache instead of the ~15 GB of draws. It fails loudly if an entry is missing
+#          rather than silently starting a 20-minute read of files that are not there.
+#   write  rebuild the cache from draws, overwriting
+#   off    ignore the cache
+#
+# Building the cache is a side effect of running these stages once with draws present, so
+# the cache cannot drift from the figures: the same run produced both.
+#
 # The fiducial prediction is combined over draws with the MEAN, not the median, and annulus
 # aggregation is also the mean. Both matter: the profile-level Delta needs the same
 # convention in numerator and denominator, and Eq. 1 already defines sigma_pred with the
@@ -32,6 +44,8 @@ cd "$(dirname "$0")/../src/paperfigs"
 source ../../scripts/env.sh
 
 STAGE=${STAGE:?set STAGE=dreams|ood|support|sweeps|aniso}
+CACHE_MODE=${CACHE_MODE:-auto}
+CACHE="--cache-dir ${STARS2DM_CACHE_ROOT} --cache-mode ${CACHE_MODE}"
 PAPER_GRID=${PAPER_GRID:-1}
 export PAPER_GRID
 TAG=${TAG:-v95}
@@ -69,7 +83,8 @@ python -u plot_radial_profile_figures.py \
     --draws-pattern "${DREAMS_N100}" \
     --highlight-test-galaxies \
     --test-galaxy-range 0:102 \
-    --dreams-all-style points,contours,hide
+    --dreams-all-style points,contours,hide \
+    ${CACHE}
 
 fi
 
@@ -87,7 +102,8 @@ python -u plot_radial_profile_figures.py \
     --draws-pattern "${TNG_N100}" \
     --num-draws-2 100 \
     --draws-pattern-2 "${FIRE_N100}" \
-    --draws-output-label-2 heun100_flat_prior_baryon
+    --draws-output-label-2 heun100_flat_prior_baryon \
+    ${CACHE}
 
 fi
 
@@ -104,7 +120,8 @@ python -u plot_paper_stamp_figures.py \
     --seed 42 \
     --num-draws 10 \
     --draws-pattern "*_${TAG}_pred_draws_10_heun100.npz" \
-    --output-dir "${FIG}"
+    --output-dir "${FIG}" \
+    ${CACHE}
 
 echo "########## stamp grids, anisotropy panels (100 draws) -- Appendix A"
 # Same 16 galaxies as the block above: the sampling pool is the test split [0, 102), every
@@ -119,10 +136,11 @@ python -u plot_paper_stamp_figures.py \
     --seed 42 \
     --num-draws 100 \
     --draws-pattern "${DREAMS_N100}" \
-    --output-dir "${FIG}"
+    --output-dir "${FIG}" \
+    ${CACHE}
 
 echo "########## calibration + e_w sweep -- Figs 5 and 6"
-python -u plot_calibration_figures.py --outdir "${FIG}"
+python -u plot_calibration_figures.py --outdir "${FIG}" ${CACHE}
 
 echo "########## ${ABLATION_TAG} ablation: DREAMS held-out -- App D1, D2"
 python -u plot_radial_profile_figures.py \
@@ -134,7 +152,8 @@ python -u plot_radial_profile_figures.py \
     --draws-pattern "*_${ABLATION_TAG}_pred_draws_10_heun100.npz" \
     --highlight-test-galaxies \
     --test-galaxy-range 0:102 \
-    --dreams-all-style points,contours,hide
+    --dreams-all-style points,contours,hide \
+    ${CACHE}
 
 # TNG50 v97 exists only at 10 draws; FIRE v97 has the 100-draw set. The mix is deliberate and
 # is stated in the caption: a ddof=0 ensemble std is biased low at n=10, so TNG50's Delta
@@ -150,7 +169,8 @@ python -u plot_radial_profile_figures.py \
     --draws-pattern "*TNG50_${ABLATION_TAG}_heun100_pred_draws_10.npz" \
     --num-draws-2 100 \
     --draws-pattern-2 "*FIREm12_${ABLATION_TAG}_heun100_n100_pred_draws_100.npz" \
-    --draws-output-label-2 FIRE
+    --draws-output-label-2 FIRE \
+    ${CACHE}
 
 fi
 
@@ -186,7 +206,8 @@ for SWEEP in om_sweep_5 s8_sweep_5 sn1_sweep_5 sn2_sweep_5 bhff_sweep_5; do
             --draws-pattern "*_${TAG}_pred_draws_50_heun100_${SWEEP}.npz" \
             --draws-slice $((i * 10)):$(((i + 1) * 10)) \
             --deviation-hist-xlim ${HIST_XLIM} \
-            --draws-output-label "${LABELS[$i]}"
+            --draws-output-label "${LABELS[$i]}" \
+            ${CACHE}
     done
 done
 

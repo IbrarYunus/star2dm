@@ -21,6 +21,7 @@ radial_profile.npz files store and what build_structured_from_sim_maps now does.
 
 import argparse
 import os
+from pathlib import Path
 
 import numpy as np
 import matplotlib
@@ -28,6 +29,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
+import figure_cache
 import stars2dm_paths
 from paper_style import apply_paper_style, save_figure as save_paper_figure  # noqa: E402
 from pred_data_loaders import (  # noqa: E402
@@ -157,6 +159,34 @@ def collect(true_path, path_fn, gal_ids, bins, n_expected=None, label=""):
     return np.array(deltas), np.array(ids)
 
 
+# Every panel in this module is built from collect()'s output, which is one profile-level
+# Delta per galaxy per annulus -- kilobytes, from gigabytes of draws. So that is what gets
+# cached, keyed by everything that changes it.
+_CACHE_ROOT = None
+_CACHE_MODE = "off"
+
+
+def cached_collect(key, true_path, path_fn, gal_ids, bins, n_expected=None, label=""):
+    cache = None
+    if _CACHE_MODE != "off":
+        cache = figure_cache.FigureCache(
+            _CACHE_ROOT or stars2dm_paths.CACHE_ROOT, _CACHE_MODE,
+            kind="calibration", sample=key, true_map=Path(true_path).name,
+            n_galaxies=len(list(gal_ids)), n_expected=n_expected,
+            bins=f"{len(bins)}:{bins[0]:.6f}:{bins[-1]:.6f}",
+        )
+        cache.require()
+    if cache is not None and cache.readable:
+        data, _ = cache.load_profiles()
+        print(f"  {label or key}: from cache ({data['deltas'].shape[0]} galaxies)")
+        return data["deltas"], data["ids"]
+    deltas, ids = collect(true_path, path_fn, gal_ids, bins,
+                          n_expected=n_expected, label=label)
+    if cache is not None and cache.writable:
+        cache.save_profiles({"deltas": deltas, "ids": ids}, None)
+    return deltas, ids
+
+
 def loo_calibrate(delta):
     """Leave-one-out calibration: galaxy i is divided by sigma of the others."""
     n = delta.shape[0]
@@ -218,13 +248,16 @@ def make_calibration_figure(r_kpc, outfile, ndraws=DEFAULT_NDRAWS,
     bi = [bin_index(r_kpc)]
     r_lab = RADIAL_CENTERS[bi[0]]
 
-    d_dreams, _ = collect(
+    d_dreams, _ = cached_collect(
+        "dreams_test",
         DREAMS_TRUE, lambda g: dreams_path(g, ndraws, suffix),
         range(N_TEST), bi, n_expected=ndraws, label="DREAMS")
-    d_tng, _ = collect(
+    d_tng, _ = cached_collect(
+        "tng50_ood",
         TNG_TRUE, lambda g: tng_path(g, ndraws, suffix),
         range(400), bi, n_expected=ndraws, label="TNG50")
-    d_fire, _ = collect(
+    d_fire, _ = cached_collect(
+        "fire_ood",
         FIRE_TRUE, fire_path,
         range(8), bi, n_expected=FIRE_NDRAWS, label="FIRE")
 
@@ -284,7 +317,8 @@ def make_sweep_figure(r_inner, r_outer, outfile, ndraws=DEFAULT_NDRAWS,
     # That is deliberate: k is the calibration factor being measured and must be free of the
     # n=10/n=50 estimator floor, whereas the sweep panels report residual MEANS, where the
     # ddof=0 bias at n=50 is 0.986 -- under 2%, against 165 GPU-h to re-run them at 100.
-    d_fid, _ = collect(
+    d_fid, _ = cached_collect(
+        "sweep_fiducial",
         DREAMS_TRUE, lambda g: dreams_path(g, ndraws, suffix),
         range(N_TEST), bins, n_expected=ndraws, label="DREAMS fiducial")
     k = np.std(d_fid, axis=0)
@@ -339,9 +373,14 @@ if __name__ == "__main__":
     ap.add_argument("--ensemble-combine", type=str, choices=["mean", "median"], default=None,
                     help="How the stochastic draws collapse to the fiducial prediction "
                          "(default: mean).")
+    figure_cache.add_cache_arguments(ap, default_root=str(stars2dm_paths.CACHE_ROOT))
     ap.add_argument("--profile-agg", type=str, choices=["mean", "median"], default=None,
                     help="How pixels are combined inside an annulus (default: mean).")
     args = ap.parse_args()
+
+    # Module scope (this block is under `if __name__`), so a plain assignment rebinds the
+    # module globals that cached_collect reads. No `global` statement -- it is invalid here.
+    _CACHE_ROOT, _CACHE_MODE = args.cache_dir, args.cache_mode
 
     apply_paper_style()
     combine, agg = set_combiners(ensemble=args.ensemble_combine, profile=args.profile_agg)

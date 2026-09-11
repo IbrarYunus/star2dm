@@ -23,6 +23,7 @@ generation code for readers with access to the raw simulations.
 | `param_sweep_configs/` | the five 5-point simulation-parameter sweep grids |
 | `reference_figures/` | the 43 figures as published, to diff regenerated output against |
 | `scripts/` | the job chain, `01_make_maps.sh` through `07_figures.sh` |
+| `src/paperfigs/figure_cache.py` | reduced arrays that stand in for the raw prediction draws |
 | `tests/` | release integrity check; needs no data |
 
 ## The two models
@@ -64,3 +65,36 @@ bash scripts/submit_all.sh figures    # 07: five figure stages, in parallel
 Each stage consumes the previous one's output, so let one finish before submitting the next.
 Individual jobs take `--export=ALL,VAR=...`; the header of each script documents its
 variables and says why the resource request is what it is.
+
+## Three ways in
+
+You do not need everything to reproduce everything. Pick the entry point that matches how
+much you want to re-derive:
+
+| you want to | you need | size | what to run |
+|---|---|---|---|
+| restyle or re-read a figure | figure cache + maps | ~0.5 GB | `CACHE_MODE=read` figure stages |
+| re-derive figures from predictions | prediction draws + maps | ~15 GB | figure stages |
+| regenerate predictions | checkpoints + maps | ~1 GB | inference, then figure stages |
+| regenerate everything | raw simulation snapshots | TB | the whole chain from `01` |
+
+The figure cache holds what the panels are actually drawn from. A population figure puts
+1024 galaxies on one axis from an array of shape `(n_galaxies, 32)` — one value per galaxy
+per radial annulus. Producing that array costs 6.7 GB of reading; the array is under a
+megabyte. So the array is what gets cached, and the figures redraw from it **pixel for
+pixel identically** — verified panel by panel, not assumed.
+
+Building the cache is a side effect of running the figure stages once with the draws
+present, so it cannot drift from the figures: the same run produced both.
+
+```bash
+CACHE_MODE=write sbatch --export=ALL,STAGE=dreams scripts/07_figures.sh   # build it
+python scripts/pack_figure_cache.py --list                               # inspect it
+CACHE_MODE=read  sbatch --export=ALL,STAGE=dreams scripts/07_figures.sh   # draws not needed
+```
+
+What the cache cannot do: change the annulus geometry, the histogram binning, or the
+draw combiner. Those choices are made upstream of what it stores, and `--cache-mode read`
+will serve you the arrays built under the published settings regardless. Every one of those
+settings is part of the cache key, so a mismatch produces a cache miss rather than a quietly
+wrong number — but acting on a different choice means fetching the draws.

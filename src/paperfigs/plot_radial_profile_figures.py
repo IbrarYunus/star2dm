@@ -11,6 +11,9 @@ import os
 import time
 from pathlib import Path
 
+import figure_cache
+import pred_data_loaders as _pdl
+import stars2dm_paths
 from pred_data_loaders import (
     DEFAULT_PRED_ROOT,
     aggregate_pixels,
@@ -58,16 +61,15 @@ VERSION_TAG_2 = None
 # mutually exclusive with VERSION_TAG_2.
 HIGHLIGHT_GALAXY_IDS = None
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 PRED_ROOT = DEFAULT_PRED_ROOT
 DATA_LAYOUT = "per_galaxy"
 NUM_DRAWS = 10
-DATA_DIR = REPO_ROOT / "DREAMS_data/Pred/CDM/MW_zooms/SB5"
+DATA_DIR = stars2dm_paths.PRED_ROOT
 # Radial-profile npz files (x1, x_pred profiles, radial_centers). Often the base version
 # directory even when draws live in a suffixed folder (e.g. v47 vs v47_flat_prior_16).
 RADIAL_PROFILE_DATA_DIR = None
 # Pred draws npz files; None uses DATA_DIR.
-# DRAWS_DATA_DIR = REPO_ROOT / "DREAMS_data/Pred/CDM/MW_zooms/SB5/v47_sn1_sweep_5"
+# DRAWS_DATA_DIR = stars2dm_paths.PRED_ROOT / "v47_sn1_sweep_5"
 # DRAWS_FILE_PATTERN = '*pred_draws_50_sn1_sweep_5.npz'
 DRAWS_DATA_DIR = None
 DRAWS_FILE_PATTERN = '*pred_draws_10.npz'
@@ -286,18 +288,21 @@ NORM_DICT = {
     }
 }
 
+# Truth and conditioning map stacks, one pair per suite. These used to be written relative
+# to the source tree, which worked only because the data happened to sit beside the checkout;
+# they resolve through stars2dm_paths now so STARS2DM_*_ROOT redirects them.
 MAP_PATHS = {
     "FIREm12": {
-        "rhoDM": REPO_ROOT / "../FIRE_data/2D_maps/FIREm12/Maps_rhoDM_FIREm12_128_z=0.00_csv_fov_z0p350_0p350.npy",
-        "rhostar": REPO_ROOT / "../FIRE_data/2D_maps/FIREm12/Maps_rhostar_FIREm12_128_z=0.00_csv_fov_z0p350_0p350.npy",
+        "rhoDM": stars2dm_paths.FIRE_RHODM_MAP,
+        "rhostar": stars2dm_paths.FIRE_RHOSTAR_MAP,
     },
     "TNG50": {
-        "rhoDM": REPO_ROOT / "../TNG_data/2D_maps/TNG50/Maps_rhoDM_TNG50_128_z=0.00_csv_fov_z0p350_0p350.npy",
-        "rhostar": REPO_ROOT / "../TNG_data/2D_maps/TNG50/Maps_rhostar_TNG50_128_z=0.00_csv_fov_z0p350_0p350.npy",
+        "rhoDM": stars2dm_paths.TNG_RHODM_MAP,
+        "rhostar": stars2dm_paths.TNG_RHOSTAR_MAP,
     },
     "DREAMS": {
-        "rhoDM": REPO_ROOT / "../DREAMS_data/2D_maps/CDM/MW_zooms/SB5/Maps_rhoDM_TNG_SB5_128_z=0.00_csv_fov_z0p350_0p350.npy",
-        "rhostar": REPO_ROOT / "../DREAMS_data/2D_maps/CDM/MW_zooms/SB5/Maps_rhostar_TNG_SB5_128_z=0.00_csv_fov_z0p350_0p350.npy",
+        "rhoDM": stars2dm_paths.DREAMS_RHODM_MAP,
+        "rhostar": stars2dm_paths.DREAMS_RHOSTAR_MAP,
     },
 }
 
@@ -2990,6 +2995,8 @@ def main(
     profile_agg=None,
     dreams_all_style=None,
     per_galaxy_indices=None,
+    cache_dir=None,
+    cache_mode="auto",
 ):
     global VERSION_TAG, VERSION_TAG_2, DATA_DIR, OUTPUT_DIR, GALAXY_IDX_LIST
     global RADIAL_PROFILE_DATA_DIR, DRAWS_DATA_DIR, DRAWS_FILE_PATTERN, DRAWS_SLICE, DRAWS_OUTPUT_LABEL
@@ -3108,42 +3115,92 @@ def main(
         print("Disabling PLOT_PRED_VS_TRUE (no radial profile npz for version 1)")
         plot_pred_vs_true = False
 
-    start_time = time.time()
-    all_structured_data = load_structured_data_for_version(
-        VERSION_TAG,
-        GALAXY_IDX_LIST,
-    )
-    print(
-        f"Loaded {len(all_structured_data['galaxy_ids'])} galaxies "
-        f"in {time.time() - start_time:.2f} s"
-    )
+    # Every setting below changes the cached numbers, so every one of them is part of the
+    # key. A cache entry built for one figure set can then never be served to another --
+    # which matters most for the combiner settings, where the arrays have identical shapes
+    # and a mismatch would show up only as a quietly different published number.
+    cache = None
+    if cache_mode != "off":
+        cache = figure_cache.FigureCache(
+            cache_dir or stars2dm_paths.CACHE_ROOT,
+            cache_mode,
+            version=VERSION_TAG,
+            version2=VERSION_TAG_2,
+            pattern=draws_pattern_v1,
+            num_draws=NUM_DRAWS,
+            galaxies=None if GALAXY_IDX_LIST is None else f"{GALAXY_IDX_LIST[0]}:{GALAXY_IDX_LIST[-1] + 1}:{len(GALAXY_IDX_LIST)}",
+            draw_slice=draw_slice_resolved,
+            ensemble=_pdl.ENSEMBLE_COMBINE,
+            profile_agg=_pdl.PROFILE_AGG,
+            denominator=DEVIATION_DENOMINATOR,
+        )
+        cache.require()
 
     draw_profiles = None
     all_draws = None
-    if needs_draws_profiles():
+
+    if cache is not None and cache.readable:
+        print(f"Reading reduced figure data: {cache.describe()}")
+        all_structured_data, draw_profiles = cache.load_profiles()
+        all_structured_data = {k: np.asarray(v) for k, v in all_structured_data.items()}
+        if needs_draws_profiles():
+            # Only the galaxies that get a pixel-level panel of their own are cached. Others
+            # resolve to None in _draws_row_for_galaxy, which already prints a skip notice,
+            # so a partial set degrades to fewer panels rather than to a crash.
+            cached_ids = cache.cached_galaxy_ids()
+            if cached_ids:
+                all_draws = {
+                    'galaxy_ids': np.array(cached_ids),
+                    'x_pred_draws': np.stack([cache.load_galaxy_draws(g) for g in cached_ids]),
+                }
+                print(f"Per-galaxy draws available from cache for galaxies {cached_ids}")
+            else:
+                all_draws = {'galaxy_ids': np.array([], dtype=int),
+                             'x_pred_draws': np.empty((0, 0, 0, 0), dtype=np.float32)}
+    else:
         start_time = time.time()
-        galaxy_ids_v1 = all_structured_data['galaxy_ids'].tolist()
-        all_draws = load_pred_data_structured(
-            draws_dir_resolved,
-            idx_list=galaxy_ids_v1,
-            file_pattern=draws_pattern_v1,
-            draw_slice=draw_slice_resolved,
-            version_tag=VERSION_TAG,
-            num_draws=NUM_DRAWS,
+        all_structured_data = load_structured_data_for_version(
+            VERSION_TAG,
+            GALAXY_IDX_LIST,
         )
-        all_draws = align_draws_to_structured(all_draws, all_structured_data)
         print(
-            f"Loaded pred draws for {len(all_draws['galaxy_ids'])} galaxies "
+            f"Loaded {len(all_structured_data['galaxy_ids'])} galaxies "
             f"in {time.time() - start_time:.2f} s"
         )
-        if COMPUTE_DRAWS_PROFILES or any([
-            PLOT_PRED_VS_TRUE_MEDIAN_CC,
-            PLOT_PRED_VS_TRUE_MEDIAN_CC_CENTER,
-            PLOT_PRED_VS_TRUE_MEDIAN_CC_ERRORBARS,
-            PLOT_STD_PRED_VS_TRUE_MEDIAN_CC,
-            PLOT_DEVIATION_DISTRIBUTION,
-        ]):
-            draw_profiles = compute_and_derive_draw_profiles(all_draws['x_pred_draws'])
+
+        if needs_draws_profiles():
+            start_time = time.time()
+            galaxy_ids_v1 = all_structured_data['galaxy_ids'].tolist()
+            all_draws = load_pred_data_structured(
+                draws_dir_resolved,
+                idx_list=galaxy_ids_v1,
+                file_pattern=draws_pattern_v1,
+                draw_slice=draw_slice_resolved,
+                version_tag=VERSION_TAG,
+                num_draws=NUM_DRAWS,
+            )
+            all_draws = align_draws_to_structured(all_draws, all_structured_data)
+            print(
+                f"Loaded pred draws for {len(all_draws['galaxy_ids'])} galaxies "
+                f"in {time.time() - start_time:.2f} s"
+            )
+            if COMPUTE_DRAWS_PROFILES or any([
+                PLOT_PRED_VS_TRUE_MEDIAN_CC,
+                PLOT_PRED_VS_TRUE_MEDIAN_CC_CENTER,
+                PLOT_PRED_VS_TRUE_MEDIAN_CC_ERRORBARS,
+                PLOT_STD_PRED_VS_TRUE_MEDIAN_CC,
+                PLOT_DEVIATION_DISTRIBUTION,
+            ]):
+                draw_profiles = compute_and_derive_draw_profiles(all_draws['x_pred_draws'])
+
+        if cache is not None and cache.writable:
+            cache.save_profiles(all_structured_data, draw_profiles)
+            if all_draws is not None and len(all_draws['galaxy_ids']):
+                for galaxy_idx in PER_GALAXY_INDICES:
+                    row = _draws_row_for_galaxy(all_draws, galaxy_idx)
+                    if row is not None:
+                        cache.save_galaxy_draws(galaxy_idx, all_draws['x_pred_draws'][row])
+            print(f"Wrote reduced figure data: {cache.describe()}")
 
     overlay = None
     if VERSION_TAG_2:
@@ -3512,6 +3569,8 @@ if __name__ == '__main__':
         ),
     )
 
+    figure_cache.add_cache_arguments(parser, default_root=str(stars2dm_paths.CACHE_ROOT))
+
     args = parser.parse_args()
 
     if args.pred_root is not None:
@@ -3558,4 +3617,6 @@ if __name__ == '__main__':
         profile_agg=args.profile_agg,
         dreams_all_style=args.dreams_all_style,
         per_galaxy_indices=args.per_galaxy_indices,
+        cache_dir=args.cache_dir,
+        cache_mode=args.cache_mode,
     )

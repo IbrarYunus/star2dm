@@ -16,6 +16,13 @@ import baryonbridge
 assert str(REPO) in baryonbridge.__file__, f"wrong baryonbridge: {baryonbridge.__file__}"
 print("baryonbridge ->", baryonbridge.__file__)
 
+# Every source file must COMPILE, not merely parse. ast.parse() accepts things the compiler
+# rejects -- a `global` at module scope after an assignment, for one -- and that class of
+# error only surfaces at import time, which is too late in a batch job.
+for src in sorted(REPO.rglob("*.py")):
+    compile(src.read_text(), str(src), "exec")
+print(f"compiled {len(list(REPO.rglob('*.py')))} source files  ok")
+
 mods = [
     "stars2dm_paths",
     "baryonbridge.config", "baryonbridge.train", "baryonbridge.eval",
@@ -33,6 +40,14 @@ mods = [
 for m in mods:
     importlib.import_module(m)
     print("  ok  ", m)
+
+# compile(), not ast.parse(). A handful of real errors -- a `global` after an assignment in
+# the same scope, among others -- are raised by the symbol-table pass, which ast.parse never
+# runs. One of those shipped past an ast.parse check during development and was only caught
+# when the script was actually executed.
+for py in sorted((REPO / "src").rglob("*.py")) + sorted((REPO / "scripts").glob("*.py")):
+    compile(py.read_text(), str(py), "exec")
+print(f"compile check: {len(list((REPO / 'src').rglob('*.py')))} modules  ok")
 
 import pred_data_loaders as pdl
 import numpy as np
@@ -144,5 +159,50 @@ print(f"job scripts: {len(scripts)} parse  ok")
 
 assert (REPO / "environment.yml").exists() and (REPO / "environment-mapgen.yml").exists()
 print("environment files present  ok")
+
+
+# --- the reduced-data cache round-trips and keys correctly ------------------------------
+# The cache is what lets a reader redraw every figure without the 15 GB of draws, so a
+# silent key collision between two figure sets would serve one set's numbers to another.
+import tempfile
+import figure_cache
+
+with tempfile.TemporaryDirectory() as tmp:
+    c = figure_cache.FigureCache(tmp, "auto", version="v95_heun100_n100", pattern="*a*")
+    c.save_profiles({"galaxy_ids": np.arange(4), "x1_profiles": np.ones((4, 32))},
+                    {"combined_profile": np.zeros((4, 32))})
+    sd, dp = c.load_profiles()
+    assert set(sd) == {"galaxy_ids", "x1_profiles"} and set(dp) == {"combined_profile"}
+    assert sd["x1_profiles"].shape == (4, 32)
+
+    # Per-galaxy draws are float32 on the way out, whatever they were on the way in.
+    # float16 was tried and moved counts across bin boundaries in the residual histograms.
+    draws = np.random.default_rng(0).normal(6.0, 0.1, (10, 16, 16)).astype(np.float32)
+    c.save_galaxy_draws(19, draws)
+    back = c.load_galaxy_draws(19)
+    assert back.dtype == np.float32 and np.array_equal(back, draws), "draws not round-tripped exactly"
+    assert c.cached_galaxy_ids() == [19] and c.load_galaxy_draws(7) is None
+
+    # Any key difference must produce a different entry -- the combiner settings especially,
+    # since those change the numbers without changing any array shape.
+    keys = [
+        {"version": "v95_heun100_n100", "pattern": "*a*"},
+        {"version": "v95_heun100_n100", "pattern": "*b*"},
+        {"version": "v97_heun100", "pattern": "*a*"},
+        {"version": "v95_heun100_n100", "pattern": "*a*", "ensemble": "median"},
+    ]
+    dirs = {figure_cache.FigureCache(tmp, "auto", **k).dir for k in keys}
+    assert len(dirs) == len(keys), "cache keys collide"
+
+    # read mode must fail loudly rather than fall back to a 20-minute read of absent draws.
+    missing = figure_cache.FigureCache(tmp, "read", version="nothing-here")
+    raised = False
+    try:
+        missing.require()
+    except FileNotFoundError as e:
+        raised = True
+        assert "--cache-mode read" in str(e)
+    assert raised, "cache read mode did not fail on a missing entry"
+print("figure cache: round-trip, float32 draws, key isolation, loud read failure  ok")
 
 print("\nALL CHECKS PASSED")
