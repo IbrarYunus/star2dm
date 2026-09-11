@@ -7,7 +7,7 @@ pred_data_loaders.py or baryonbridge/config.py. Each assertion below stands for 
 was live at some point and produced a plausible wrong answer rather than an error; the
 comments say which.
 """
-import sys, importlib, pathlib
+import os, sys, importlib, pathlib
 REPO = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(1, str(REPO / "src" / "paperfigs"))
@@ -156,6 +156,29 @@ assert len(scripts) == 9, f"expected 9 job scripts, found {len(scripts)}"
 for sh in scripts:
     subprocess.run(["bash", "-n", str(sh)], check=True)
 print(f"job scripts: {len(scripts)} parse  ok")
+
+# Slurm copies the batch script to a spool directory before running it, so $0 is not the
+# script's path in the repository and `dirname "$0"` finds nothing. Every job script must
+# resolve the repository some other way. Simulated by running a copy from elsewhere.
+import shutil
+import tempfile
+with tempfile.TemporaryDirectory() as spool:
+    copy = pathlib.Path(spool) / "slurm_script"
+    shutil.copy(REPO / "scripts/07_figures.sh", copy)
+    env = dict(os.environ, SLURM_SUBMIT_DIR=str(REPO), STAGE="aniso", CACHE_MODE="off",
+               STARS2DM_ENV=os.environ.get("STARS2DM_ENV", "base"))
+    env.pop("STARS2DM_REPO", None)
+    r = subprocess.run(["bash", "-c", f'source "{copy}" 2>/dev/null; echo "$STARS2DM_REPO"'],
+                       capture_output=True, text=True, env=env)
+    assert str(REPO) in r.stdout, f"repo not resolved from SLURM_SUBMIT_DIR: {r.stdout!r}"
+
+    # And with nothing to resolve from, it must fail rather than guess.
+    env.pop("SLURM_SUBMIT_DIR")
+    r = subprocess.run(["bash", str(copy)], capture_output=True, text=True, env=env,
+                       cwd=spool)
+    assert r.returncode != 0 and "cannot locate" in r.stderr, \
+        "unresolvable repo did not fail loudly"
+print("job scripts: resolve the repo under Slurm, fail loudly otherwise  ok")
 
 assert (REPO / "environment.yml").exists() and (REPO / "environment-mapgen.yml").exists()
 print("environment files present  ok")

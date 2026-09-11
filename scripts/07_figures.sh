@@ -39,12 +39,42 @@
 # convention in numerator and denominator, and Eq. 1 already defines sigma_pred with the
 # mean. Changing either moves published numbers -- see src/paperfigs/pred_data_loaders.py.
 
-set -euo pipefail
-cd "$(dirname "$0")/../src/paperfigs"
-source ../../scripts/env.sh
+set -eo pipefail
+
+# Locate the repository. Slurm copies the batch script to a spool directory before running
+# it, so "$0" is /var/spool/slurm/.../slurm_script and dirname "$0" finds nothing. Prefer an
+# explicit STARS2DM_REPO, then the directory sbatch was called from, then the script's own
+# location for a direct (non-Slurm) run -- and check the answer before trusting it.
+for candidate in "${STARS2DM_REPO}" "${SLURM_SUBMIT_DIR}" "$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)"; do
+    if [ -n "${candidate}" ] && [ -d "${candidate}/src/paperfigs" ]; then
+        STARS2DM_REPO="${candidate}"
+        break
+    fi
+done
+if [ ! -d "${STARS2DM_REPO}/src/paperfigs" ]; then
+    echo "ERROR: cannot locate the stars2dm repository." >&2
+    echo "       Submit from the repository root, or set STARS2DM_REPO explicitly:" >&2
+    echo "       sbatch --export=ALL,STARS2DM_REPO=/path/to/stars2dm,... $0" >&2
+    exit 1
+fi
+export STARS2DM_REPO
+
+cd "${STARS2DM_REPO}/src/paperfigs"
+source "${STARS2DM_REPO}/scripts/env.sh"
+set -u
 
 STAGE=${STAGE:?set STAGE=dreams|ood|support|sweeps|aniso}
+case "${STAGE}" in
+    dreams|ood|support|sweeps|aniso) ;;
+    *) echo "ERROR: unknown STAGE='${STAGE}'; expected dreams|ood|support|sweeps|aniso" >&2
+       exit 1 ;;
+esac
 CACHE_MODE=${CACHE_MODE:-auto}
+case "${CACHE_MODE}" in
+    auto|read|write|off) ;;
+    *) echo "ERROR: unknown CACHE_MODE='${CACHE_MODE}'; expected auto|read|write|off" >&2
+       exit 1 ;;
+esac
 CACHE="--cache-dir ${STARS2DM_CACHE_ROOT} --cache-mode ${CACHE_MODE}"
 PAPER_GRID=${PAPER_GRID:-1}
 export PAPER_GRID

@@ -23,9 +23,29 @@
 # To use the trained checkpoint for inference, copy it to where the rest of the pipeline
 # looks:  cp checkpoints/v95_fiducial/last.ckpt "$STARS2DM_CKPT_ROOT/last-v95.ckpt"
 
-set -euo pipefail
-cd "$(dirname "$0")/.."
-source scripts/env.sh
+set -eo pipefail
+
+# Locate the repository. Slurm copies the batch script to a spool directory before running
+# it, so "$0" is /var/spool/slurm/.../slurm_script and dirname "$0" finds nothing. Prefer an
+# explicit STARS2DM_REPO, then the directory sbatch was called from, then the script's own
+# location for a direct (non-Slurm) run -- and check the answer before trusting it.
+for candidate in "${STARS2DM_REPO}" "${SLURM_SUBMIT_DIR}" "$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)"; do
+    if [ -n "${candidate}" ] && [ -d "${candidate}/src/paperfigs" ]; then
+        STARS2DM_REPO="${candidate}"
+        break
+    fi
+done
+if [ ! -d "${STARS2DM_REPO}/src/paperfigs" ]; then
+    echo "ERROR: cannot locate the stars2dm repository." >&2
+    echo "       Submit from the repository root, or set STARS2DM_REPO explicitly:" >&2
+    echo "       sbatch --export=ALL,STARS2DM_REPO=/path/to/stars2dm,... $0" >&2
+    exit 1
+fi
+export STARS2DM_REPO
+
+cd "${STARS2DM_REPO}"
+source "${STARS2DM_REPO}/scripts/env.sh"
+set -u
 
 MODEL=${MODEL:?set MODEL=v95 or MODEL=v97}
 case "${MODEL}" in
