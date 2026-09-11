@@ -71,6 +71,13 @@ DREAMS-only `v95_heun100_n100_anisotropy_population_alignment.pdf` and
 `v95_heun100_n100_anisotropy_population_delta.pdf` are kept in `reference_figures/` so that a
 diff of a regenerated run comes out empty rather than showing two unexplained extras.
 
+Their copies here were refreshed at release time. The set collected for the paper still held
+the 2026-09-04 versions of these two, predating an anisotropy colour and opacity change on
+2026-09-11 — because `collect_paper_figures.py` copies what the `.tex` references, and these
+two are not referenced, so nothing pulled the newer ones through. The `_suites` versions the
+paper does use were current. Caught by `tests/verify_reproduction.py` on the first real run:
+five of the seven anisotropy panels came out pixel-identical and exactly these two did not.
+
 ## What each figure is
 
 | fig | label | caption (first line) |
