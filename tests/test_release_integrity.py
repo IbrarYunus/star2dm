@@ -213,4 +213,38 @@ with tempfile.TemporaryDirectory() as tmp:
     assert raised, "cache read mode did not fail on a missing entry"
 print("figure cache: round-trip, float32 draws, key isolation, loud read failure  ok")
 
+
+# --- docs describe the tree that actually exists ----------------------------------------
+import re
+import yaml
+
+figmap = (REPO / "docs/FIGURE_MAP.md").read_text()
+published = {q.name for q in (REPO / "reference_figures").glob("*.pdf")}
+listed = set(re.findall(r"`([^`]+\.pdf)`", figmap))
+missing = published - listed
+assert not missing, f"reference_figures not listed in FIGURE_MAP.md: {sorted(missing)}"
+assert not (listed - published), f"FIGURE_MAP.md names absent figures: {sorted(listed - published)}"
+print(f"figure map: all {len(published)} published figures accounted for  ok")
+
+# Relative links between docs must resolve, or the caveats page is a dead end.
+for doc in sorted((REPO / "docs").glob("*.md")) + [REPO / "README.md"]:
+    for target in re.findall(r"\]\((?!https?:)([^)#]+)", doc.read_text()):
+        assert (doc.parent / target).resolve().exists(), f"{doc.name}: dead link {target}"
+print("docs: every relative link resolves  ok")
+
+manifest = yaml.safe_load((REPO / "data/MANIFEST.yaml").read_text())
+assert set(manifest["tiers"]) == {"maps", "checkpoints", "cache", "predictions"}
+for name, tier in manifest["tiers"].items():
+    assert tier["files"], f"manifest tier {name} is empty"
+    for entry in tier["files"]:
+        assert set(entry) == {"root", "path", "url", "bytes", "sha256"}, entry
+# The map and checkpoint hashes are of real files and must be real hashes, not placeholders.
+for name in ("maps", "checkpoints"):
+    for entry in manifest["tiers"][name]["files"]:
+        assert re.fullmatch(r"[0-9a-f]{64}", entry["sha256"]), f"{name}: {entry['path']} unhashed"
+        assert entry["bytes"] > 0
+print(f"manifest: 4 tiers, "
+      f"{sum(len(t['files']) for t in manifest['tiers'].values())} entries, "
+      f"map and checkpoint hashes real  ok")
+
 print("\nALL CHECKS PASSED")

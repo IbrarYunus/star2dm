@@ -6,10 +6,10 @@ Code and trained models for the paper. Contains the model, the two trained check
 in the paper, the analysis and figure code that produces all 43 figures, and the map
 generation code for readers with access to the raw simulations.
 
-> **Status: under construction.** Documentation (`docs/REPRODUCE.md`, `docs/DATA.md`,
-> `docs/FIGURE_MAP.md`, `docs/CAVEATS.md`), the archive manifest and `scripts/fetch_data.py`
-> are not written yet, so the download tiers referenced below do not exist. Everything that
-> runs from data you already have does work.
+> **Status: the archive is not published yet.** `data/MANIFEST.yaml` carries real checksums
+> for the maps and checkpoints, but `archive_base_url` is still a placeholder, so
+> `scripts/fetch_data.py` cannot download. Everything that runs from data you already have
+> works; `--list` and `--verify` work regardless.
 
 ## Layout
 
@@ -65,6 +65,18 @@ bash scripts/submit_all.sh figures    # 07: five figure stages, in parallel
 Each stage consumes the previous one's output, so let one finish before submitting the next.
 Individual jobs take `--export=ALL,VAR=...`; the header of each script documents its
 variables and says why the resource request is what it is.
+
+## Documentation
+
+| | |
+|---|---|
+| [docs/REPRODUCE.md](docs/REPRODUCE.md) | the five entry points, with exact commands |
+| [docs/DATA.md](docs/DATA.md) | what the data is, how it is named, what it should hash to |
+| [docs/FIGURE_MAP.md](docs/FIGURE_MAP.md) | which script makes which of the 43 figures |
+| [docs/CAVEATS.md](docs/CAVEATS.md) | twelve ways to get a plausible wrong answer |
+
+**Read `docs/CAVEATS.md` before trusting a number you derive from this code.** Every entry in
+it was live at some point and produced a believable result rather than an error.
 
 ## Three ways in
 
