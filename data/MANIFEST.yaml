@@ -25,47 +25,47 @@ tiers:
     files:
       - root: dreams
         path: "2D_maps/CDM/MW_zooms/SB5/Maps_rhoDM_TNG_SB5_128_z=0.00_csv_fov_z0p350_0p350.npy"
-        url: "maps/Maps_rhoDM_TNG_SB5_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        url: "maps/dreams/Maps_rhoDM_TNG_SB5_128_z=0.00_csv_fov_z0p350_0p350.npy"
         bytes: 134217856
         sha256: "0a45629abc4d2b1bb0352fef66d4109cad0275e6a5bdde5332d4739d95b9ce2e"
       - root: dreams
         path: "2D_maps/CDM/MW_zooms/SB5/Maps_rhostar_TNG_SB5_128_z=0.00_csv_fov_z0p350_0p350.npy"
-        url: "maps/Maps_rhostar_TNG_SB5_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        url: "maps/dreams/Maps_rhostar_TNG_SB5_128_z=0.00_csv_fov_z0p350_0p350.npy"
         bytes: 134217856
         sha256: "af4d74945a86b0214fd9673886d94f745ee2faa49174423772bd0b7e7534e6a8"
       - root: tng
         path: "2D_maps/TNG50/Maps_rhoDM_TNG50_128_z=0.00_csv_fov_z0p350_0p350.npy"
-        url: "maps/Maps_rhoDM_TNG50_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        url: "maps/tng/Maps_rhoDM_TNG50_128_z=0.00_csv_fov_z0p350_0p350.npy"
         bytes: 34603136
         sha256: "91015f38114fcfee08072807d64b6e679344a2acc7eb790457278cc9c6b4eae4"
       - root: tng
         path: "2D_maps/TNG50/Maps_rhostar_TNG50_128_z=0.00_csv_fov_z0p350_0p350.npy"
-        url: "maps/Maps_rhostar_TNG50_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        url: "maps/tng/Maps_rhostar_TNG50_128_z=0.00_csv_fov_z0p350_0p350.npy"
         bytes: 34603136
         sha256: "14efa0ad5b944f17882b6a6cc83871a593fa6ba7642f03c1bd2d7579363f911f"
       - root: fire
         path: "2D_maps/FIREm12/Maps_rhoDM_FIREm12_128_z=0.00_csv_fov_z0p350_0p350.npy"
-        url: "maps/Maps_rhoDM_FIREm12_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        url: "maps/fire/Maps_rhoDM_FIREm12_128_z=0.00_csv_fov_z0p350_0p350.npy"
         bytes: 1048704
         sha256: "1a0b0657ffc703d5e38d9270114b34142bd5dfff440f1aff92ee7dae781c1263"
       - root: fire
         path: "2D_maps/FIREm12/Maps_rhostar_FIREm12_128_z=0.00_csv_fov_z0p350_0p350.npy"
-        url: "maps/Maps_rhostar_FIREm12_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        url: "maps/fire/Maps_rhostar_FIREm12_128_z=0.00_csv_fov_z0p350_0p350.npy"
         bytes: 1048704
         sha256: "2eaf9b226e99c1f3d5f1499e106c8cd9f7742343b6d78b5d731eee95cbc9048f"
       - root: dreams
         path: "Parameters/CDM/MW_zooms/CDM_TNG_MW_SB5.txt"
-        url: "maps/CDM_TNG_MW_SB5.txt"
+        url: "maps/dreams/CDM_TNG_MW_SB5.txt"
         bytes: 46121
         sha256: "219fd71eb847457001f67390d54a3f916ef2827699ffa4c8d37b1282c1cb8b9a"
       - root: tng
         path: "Parameters/TNG50/CDM_TNG_MW_SB5.txt"
-        url: "maps/CDM_TNG_MW_SB5.txt"
+        url: "maps/tng/CDM_TNG_MW_SB5.txt"
         bytes: 293800
         sha256: "12f6bc7bd2b3e43da403e597d689a6eefa2812ef3933ac6cc2b12e0147fc24fd"
       - root: fire
         path: "Parameters/FIREm12/CDM_TNG_MW_SB5.txt"
-        url: "maps/CDM_TNG_MW_SB5.txt"
+        url: "maps/fire/CDM_TNG_MW_SB5.txt"
         bytes: 293800
         sha256: "12f6bc7bd2b3e43da403e597d689a6eefa2812ef3933ac6cc2b12e0147fc24fd"
 
@@ -101,11 +101,13 @@ tiers:
 
   predictions:
     description: |
-      The raw prediction draws, ~15 GB. Only needed to change something the cache fixes:
+      The raw prediction draws, ~23 GB. Only needed to change something the cache fixes:
       the annulus geometry, the histogram binning, or how draws are combined. Everything
       else is answered by the cache tier at a thousandth of the size.
       Per-galaxy npz for v95 and v97 over DREAMS, TNG50 and FIRE m12, plus the five
-      parameter sweeps trimmed to the two grid points the paper plots.
+      parameter sweeps whole -- all five grid points, not just the two Appendix C plots.
+      Trimming them would break the published --draws-slice 40:50 commands and would
+      remove exactly what someone fetching this tier is likely to want.
       Fill in bytes and sha256 at publish time.
     files:
       - root: pred

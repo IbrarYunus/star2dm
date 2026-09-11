@@ -86,7 +86,7 @@ much you want to re-derive:
 | you want to | you need | size | what to run |
 |---|---|---|---|
 | restyle or re-read a figure | figure cache + maps | ~0.5 GB | `CACHE_MODE=read` figure stages |
-| re-derive figures from predictions | prediction draws + maps | ~15 GB | figure stages |
+| re-derive figures from predictions | prediction draws + maps | ~23 GB | figure stages |
 | regenerate predictions | checkpoints + maps | ~1 GB | inference, then figure stages |
 | regenerate everything | raw simulation snapshots | TB | the whole chain from `01` |
 

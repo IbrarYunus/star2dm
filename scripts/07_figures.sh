@@ -26,7 +26,7 @@
 #
 #   auto   (default) use the cache if it is there, otherwise read the draws and write it
 #   read   require the cache -- this is the path for a reader who downloaded the ~150 MB
-#          cache instead of the ~15 GB of draws. It fails loudly if an entry is missing
+#          cache instead of the ~23 GB of draws. It fails loudly if an entry is missing
 #          rather than silently starting a 20-minute read of files that are not there.
 #   write  rebuild the cache from draws, overwriting
 #   off    ignore the cache

@@ -3,7 +3,7 @@
 
 The repository holds code and the 43 published figures. Everything else -- the maps, the
 two checkpoints, the reduced figure cache, the raw prediction draws -- lives in an archive,
-because the smallest of them is larger than the whole source tree and the largest is 15 GB.
+because the smallest of them is larger than the whole source tree and the largest is 23 GB.
 
     python scripts/fetch_data.py --list                 # tiers, sizes, and what each unlocks
     python scripts/fetch_data.py --tier maps --tier cache
@@ -157,7 +157,7 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--tier", action="append", choices=list(manifest["tiers"]),
                     help="tier to fetch; repeatable")
-    ap.add_argument("--all", action="store_true", help="every tier, including the 15 GB one")
+    ap.add_argument("--all", action="store_true", help="every tier, including the 23 GB one")
     ap.add_argument("--list", action="store_true", help="report tiers and exit")
     ap.add_argument("--verify", action="store_true",
                     help="checksum what is on disk; downloads nothing")

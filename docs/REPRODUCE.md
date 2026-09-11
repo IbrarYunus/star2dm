@@ -6,7 +6,7 @@ superset of the one above it.
 | you want to | you need | download | time |
 |---|---|---|---|
 | **A.** redraw or restyle a figure, re-read a number | maps + figure cache | ~475 MB | minutes |
-| **B.** re-derive figures from predictions | maps + predictions | ~15 GB | hours |
+| **B.** re-derive figures from predictions | maps + predictions | ~23 GB | hours |
 | **C.** regenerate predictions from the models | maps + checkpoints | ~950 MB | ~2 GPU-days |
 | **D.** retrain from scratch | maps | 325 MB | + ~1 GPU-day |
 | **E.** rebuild the maps | raw snapshots | TB | see `docs/DATA.md` |

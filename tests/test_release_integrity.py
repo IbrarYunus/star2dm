@@ -243,8 +243,15 @@ for name in ("maps", "checkpoints"):
     for entry in manifest["tiers"][name]["files"]:
         assert re.fullmatch(r"[0-9a-f]{64}", entry["sha256"]), f"{name}: {entry['path']} unhashed"
         assert entry["bytes"] > 0
+# Two entries sharing a url would overwrite each other on the archive. The three parameter
+# tables are the live case: DREAMS, TNG50 and FIRE each ship a file named CDM_TNG_MW_SB5.txt,
+# and a flat url layout silently published one of them three times.
+urls = [e["url"] for t in manifest["tiers"].values() for e in t["files"]]
+dupes = {u for u in urls if urls.count(u) > 1}
+assert not dupes, f"manifest urls collide: {sorted(dupes)}"
+
 print(f"manifest: 4 tiers, "
       f"{sum(len(t['files']) for t in manifest['tiers'].values())} entries, "
-      f"map and checkpoint hashes real  ok")
+      f"map and checkpoint hashes real, urls unique  ok")
 
 print("\nALL CHECKS PASSED")

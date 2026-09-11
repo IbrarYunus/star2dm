@@ -4,7 +4,7 @@
 The cache is built as a side effect of running the figure stages once with the draws
 present (scripts/07_figures.sh, CACHE_MODE=auto or write). This packs the result into a
 single archive, with a checksum, so it can be published alongside the paper and fetched by
-scripts/fetch_data.py instead of the ~15 GB of raw prediction draws.
+scripts/fetch_data.py instead of the ~23 GB of raw prediction draws.
 
     python scripts/pack_figure_cache.py --list                 # what is cached, and how big
     python scripts/pack_figure_cache.py --out dist/            # write the archive

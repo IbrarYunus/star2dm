@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Small reduced arrays that stand in for 15 GB of prediction draws.
+"""Small reduced arrays that stand in for 23 GB of prediction draws.
 
 The figures in this paper are not drawn from the draws directly. A population figure --
 the deviation distributions, the predicted-vs-true scatters, every panel that puts 1024

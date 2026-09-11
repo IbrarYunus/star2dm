@@ -23,7 +23,7 @@ beside the source.
 | `maps` | 325 MB | everything. The training input and the truth for every figure. |
 | `cache` | ~150 MB | redrawing all 43 figures. Needs `maps`. |
 | `checkpoints` | 625 MB | regenerating predictions without retraining. Needs `maps`. |
-| `predictions` | ~15 GB | changing the annulus geometry, binning, or draw combiner. |
+| `predictions` | ~23 GB | changing the annulus geometry, binning, or draw combiner. |
 
 Pick the smallest tier that answers your question. `cache` and `predictions` answer the same
 questions about the *published* figures; `predictions` additionally lets you ask different
@@ -108,9 +108,38 @@ Each holds `draws` of shape `(n_draws, 128, 128)` in standardized units —
 
 The sweep files are config-major: `pred_draws_50_heun100_sn1_sweep_5.npz` holds 5 grid points
 × 10 draws, so draws `0:10` are grid point 0 and `40:50` are grid point 4. Appendix C plots
-only those two, which is why the published `predictions` tier ships only those slices — the
-middle three grid points are computed but never plotted, and shipping them would nearly triple
-the tier.
+only those two extremes.
+
+The tier ships these files **whole**, all five grid points, even though that is 8.6 GB of the
+23 GB. Trimming them to the two plotted slices was the original plan and is wrong twice over:
+it would break the published `--draws-slice 40:50` commands, since grid point 4 would no
+longer be at index 40; and this tier exists precisely for people who want to ask a question
+the paper did not, for whom the three unplotted grid points are the interesting part. If you
+only want the published panels, the `cache` tier already has them at a thousandth of the size.
+
+## Publishing the archive
+
+`scripts/stage_archive.py` assembles the upload directory in exactly the layout
+`MANIFEST.yaml` gives each file, so the whole thing uploads verbatim and only
+`archive_base_url` has to change afterwards.
+
+```bash
+python scripts/stage_archive.py --out dist/ --all --dry-run   # the plan, touches nothing
+python scripts/stage_archive.py --out dist/ --tier maps --tier checkpoints
+python scripts/stage_archive.py --out dist/ --tier cache      # needs the cache built
+python scripts/stage_archive.py --out dist/ --tier predictions
+```
+
+Maps and checkpoints are re-checksummed against the manifest as they are staged, so a
+corrupted source is caught before upload rather than after. The cache and prediction tiers
+are built here rather than listed, so the script prints their sizes and hashes for you to
+paste into the manifest.
+
+Files are hard-linked when the staging directory is on the same filesystem as the source and
+copied otherwise — staging 23 GB onto the same filesystem costs no extra space.
+
+The prediction tarball is uncompressed on purpose: npz members are already deflated, so gzip
+buys almost nothing and costs hours at that size.
 
 ## Regenerating the maps yourself
 
