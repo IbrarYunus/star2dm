@@ -1,0 +1,103 @@
+# stars2dm fiducial model -- checkpoint `last-v95.ckpt`, used for every main-text figure.
+#
+# Stochastic interpolant, rhostar -> rhoDM, 128x128 maps on the fixed z=0.35 grid.
+# Radially weighted velocity-matching loss: w(R) = 1 / max(R, R_min)^p with p = 1 and
+# R_min = 2 kpc, mean-normalized over the pixel grid. Simulation parameters (theta) are
+# passed as 5 conditioning embeddings. 820/102/102 split, seed 42, 10000 max steps.
+# Evaluated with the stochastic Heun sampler at 100 steps ("heun100").
+#
+# Paired with configs/v97_no_theta.yaml, which is byte-identical except theta conditioning
+# is off -- that pair is the Appendix D ablation.
+
+seed_everything: 42
+
+model:
+  class_path: baryonbridge.interpolants.stochastic.LightningStochasticInterpolant
+  init_args:
+    in_channels: 1
+    out_channels: 1
+    cond_channels: 1
+    num_channels: [64,128,256, 256]
+    num_groups_norm: 64
+    layers_per_block: 2
+    dropout_prob: 0.05
+    learning_rate: 2.0e-4
+    condition_on_parameters: true
+    n_sampling_steps: 100
+    act_fn: 'SiLU'
+    num_h_embeds: 5
+    dim: 2
+    x0_indices_in_conditioning: [0]
+    validation_batch_index: 0
+    use_radial_loss_weight: true
+    radial_loss_weight_mode: radial_power
+    radial_loss_power: 1.0
+    radial_loss_r_min_kpc: 2.0
+    radial_loss_resolution: 128
+    radial_loss_xmin: -32
+    radial_loss_xmax: 32
+    radial_loss_ymin: -32
+    radial_loss_ymax: 32
+
+data:
+  class_path: baryonbridge.data.dreams.DREAMSDataModule
+  init_args:
+    resolution: 128
+    n_train: 820
+    n_val: 102
+    n_test: 102
+    batch_size: 24
+    num_workers: 8
+    redshift: 0.
+    x1_fields: ['rhoDM']
+    x_conditioning_fields: ['rhostar']
+    # Override at launch: --data.init_args.root="$STARS2DM_DREAMS_ROOT"
+    root: "./data/DREAMS_data/"
+    dims: 2
+    randomize_theta: false
+    randomize_x_conditioning: false
+    randomize_x1: false
+    random_seed: null
+    randomization_mode: "fixed"
+    grid:
+      xmin: -32
+      xmax: 32
+      ymin: -32
+      ymax: 32
+      zmin: -32
+      zmax: 32
+      zmin_2d: -32
+      zmax_2d: 32
+    file_suffix: "csv_fov_z0p350_0p350"
+
+trainer:
+  max_steps: 10000
+  max_epochs: -1
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+  # The published runs logged to Weights & Biases as project 'baryonbridge', run
+  # 'dm_2d_radial_power_p1_rmin2_final_80_10_10'. Swapped to CSVLogger so this config runs
+  # without a wandb account; metrics land in logs/. Neither choice affects training.
+  logger:
+    class_path: lightning.pytorch.loggers.CSVLogger
+    init_args:
+      save_dir: logs
+      name: v95_fiducial
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.LearningRateMonitor
+      init_args:
+        logging_interval: step
+    - class_path: lightning.pytorch.callbacks.TQDMProgressBar
+      init_args:
+        refresh_rate: 25
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        dirpath: ./checkpoints/v95_fiducial
+        filename: "short-{step}-{val_loss:.3f}"
+        save_top_k: 3
+        monitor: "val_loss"
+        mode: "min"
+        save_last: true
+        save_on_train_epoch_end: true
+  check_val_every_n_epoch: 1
+  precision: "16-mixed"

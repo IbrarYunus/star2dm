@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stars2dm"
+version = "1.0.0"
+description = "Stochastic-interpolant prediction of dark matter density maps from stellar density maps"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.6",
+    "lightning>=2.5",
+    "jsonargparse[signatures]>=4.38",
+    "numpy>=2.2",
+    "scipy>=1.15",
+    "pandas>=2.2",
+    "matplotlib>=3.10",
+    "h5py>=3.13",
+    "scikit-learn>=1.6",
+    "tqdm",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["stars2dm_paths"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["baryonbridge*"]
