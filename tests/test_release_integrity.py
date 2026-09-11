@@ -90,4 +90,59 @@ print("duplicate annulus geometry: identical to canonical  ok")
 # --- combiner convention is mean/mean, as the published figures used ---
 assert (pdl.ENSEMBLE_COMBINE, pdl.PROFILE_AGG) == ("mean", "mean")
 print("combiners: mean/mean  ok")
+
+# --- the two configs still describe the two published models ---------------------------
+# A config is one edit away from silently becoming a different model. These assert the
+# hyperparameters the paper reports, at the YAML level so the check is fast and needs no GPU.
+import yaml
+
+def _cfg(name):
+    return yaml.safe_load((REPO / "configs" / name).read_text())
+
+fid = _cfg("v95_fiducial.yaml")
+abl = _cfg("v97_no_theta.yaml")
+for name, cfg in (("v95", fid), ("v97", abl)):
+    m, d = cfg["model"]["init_args"], cfg["data"]["init_args"]
+    assert cfg["seed_everything"] == 42, name
+    assert m["use_radial_loss_weight"] is True, name
+    assert m["radial_loss_weight_mode"] == "radial_power", name
+    assert m["radial_loss_power"] == 1.0, name          # p = 1
+    assert m["radial_loss_r_min_kpc"] == 2.0, name      # R_min = 2 kpc
+    assert m["n_sampling_steps"] == 100, name
+    assert (d["n_train"], d["n_val"], d["n_test"]) == (820, 102, 102), name
+    assert d["x_conditioning_fields"] == ["rhostar"] and d["x1_fields"] == ["rhoDM"], name
+    assert d["file_suffix"] == "csv_fov_z0p350_0p350", name
+    assert cfg["trainer"]["max_steps"] == 10000, name
+    assert d["resolution"] == 128, name
+
+# The split constants in the loader must agree with what the configs trained on, or every
+# split label is wrong for the shipped models.
+assert (pdl.TEST_IDX_END, pdl.TRAIN_IDX_START) == (
+    fid["data"]["init_args"]["n_test"],
+    fid["data"]["init_args"]["n_test"] + fid["data"]["init_args"]["n_val"])
+print("configs: p=1, R_min=2 kpc, 820/102/102, z0p350 maps, and the loader split agrees  ok")
+
+# theta conditioning is the ONLY difference between them -- both halves matter: a null
+# num_h_embeds stops the embedding module being built at all, which is what avoids a DDP
+# unused-parameter error from a module that exists but never receives h.
+assert fid["model"]["init_args"]["condition_on_parameters"] is True
+assert fid["model"]["init_args"]["num_h_embeds"] == 5
+assert abl["model"]["init_args"]["condition_on_parameters"] is False
+assert abl["model"]["init_args"]["num_h_embeds"] is None
+diff = {k for k in set(fid["model"]["init_args"]) | set(abl["model"]["init_args"])
+        if fid["model"]["init_args"].get(k) != abl["model"]["init_args"].get(k)}
+assert diff == {"condition_on_parameters", "num_h_embeds"}, f"configs differ in more than theta: {diff}"
+print("v95 vs v97: differ in theta conditioning and nothing else  ok")
+
+# --- job scripts are syntactically valid shell ------------------------------------------
+import subprocess
+scripts = sorted((REPO / "scripts").glob("*.sh"))
+assert len(scripts) == 9, f"expected 9 job scripts, found {len(scripts)}"
+for sh in scripts:
+    subprocess.run(["bash", "-n", str(sh)], check=True)
+print(f"job scripts: {len(scripts)} parse  ok")
+
+assert (REPO / "environment.yml").exists() and (REPO / "environment-mapgen.yml").exists()
+print("environment files present  ok")
+
 print("\nALL CHECKS PASSED")

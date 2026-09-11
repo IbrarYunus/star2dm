@@ -1,0 +1,37 @@
+# stars2dm: density-map construction from raw simulation snapshots (src/mapgen/).
+#
+# Separate from environment.yml on purpose. Map generation ran in a different environment
+# from training -- it needs astropy and agama, which the training environment does not carry,
+# and it does not need torch or lightning, which are the bulk of that one.
+#
+#   conda env create -f environment-mapgen.yml
+#   conda activate stars2dm-mapgen
+#
+# Versions are those of the environment the maps were built in (Python 3.11.5). They are
+# looser pins than environment.yml's because the conda packages there were installed from
+# local build artifacts whose exact URLs are not portable.
+#
+# THREE DEPENDENCIES ARE NOT ON PyPI OR conda and must be installed by hand. Each is only
+# needed for the suite next to it, so a reader building only the DREAMS maps needs one:
+#
+#   dreams_python    DREAMS  snapshot and parameter-file loading, from the DREAMS project
+#   gizmopy          FIRE    load_fire_snap, snapshot reader
+#   gizmo_analysis   FIRE    Wetzel's FIRE analysis package
+#
+# agama is only used by the gravitational-potential branch, which the paper's maps do not
+# take; it is listed because get_2D_maps.py imports it at module scope.
+name: stars2dm-mapgen
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - numpy=1.23.5
+  - scipy=1.11.1
+  - astropy=5.1
+  - h5py=3.9.0
+  - matplotlib=3.7.2
+  - pandas=2.0.3
+  - tqdm
+  - pip
+  - pip:
+      - agama==1.0
