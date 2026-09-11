@@ -17,8 +17,18 @@ if [ -f ~/.bashrc_conda ]; then
 fi
 conda activate "${STARS2DM_ENV:-stars2dm}"
 
-# --- 2. data roots ----------------------------------------------------------------------
+# --- 2. this repository -------------------------------------------------------------------
 export STARS2DM_REPO="${STARS2DM_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+
+# src/ goes on PYTHONPATH ahead of anything else. With `pip install -e .` this is redundant;
+# without it the code still runs. It also settles an ambiguity that is otherwise silent and
+# nasty: if another copy of `baryonbridge` is installed in the environment -- an editable
+# install pointing at a development checkout, say -- an unqualified `import baryonbridge`
+# finds that one, and the whole run exercises different code than the repository holds, with
+# no error anywhere. Prepending makes this repository win.
+export PYTHONPATH="${STARS2DM_REPO}/src${PYTHONPATH:+:${PYTHONPATH}}"
+
+# --- 3. data roots ------------------------------------------------------------------------
 export STARS2DM_DATA_ROOT="${STARS2DM_DATA_ROOT:-${STARS2DM_REPO}/data}"
 export STARS2DM_DREAMS_ROOT="${STARS2DM_DREAMS_ROOT:-${STARS2DM_DATA_ROOT}/DREAMS_data}"
 export STARS2DM_TNG_ROOT="${STARS2DM_TNG_ROOT:-${STARS2DM_DATA_ROOT}/TNG_data}"
