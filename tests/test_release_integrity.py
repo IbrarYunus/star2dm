@@ -194,6 +194,14 @@ with tempfile.TemporaryDirectory() as tmp:
     dirs = {figure_cache.FigureCache(tmp, "auto", **k).dir for k in keys}
     assert len(dirs) == len(keys), "cache keys collide"
 
+    # A None-valued key part must hash the same as an absent one, so that adding an
+    # optional argument to a call site does not silently invalidate every existing entry.
+    a = figure_cache.FigureCache(tmp, "auto", version="v95", pattern="*a*")
+    b = figure_cache.FigureCache(tmp, "auto", version="v95", pattern="*a*", draw_slice=None)
+    assert a.dir == b.dir, "a None key part changed the cache key"
+    c = figure_cache.FigureCache(tmp, "auto", version="v95", pattern="*a*", draw_slice="0:10")
+    assert c.dir != a.dir, "a real key part failed to change the cache key"
+
     # read mode must fail loudly rather than fall back to a 20-minute read of absent draws.
     missing = figure_cache.FigureCache(tmp, "read", version="nothing-here")
     raised = False

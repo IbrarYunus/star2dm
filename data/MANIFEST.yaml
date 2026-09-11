@@ -1,0 +1,115 @@
+# Where the data that is not in this repository lives, and what it should hash to.
+#
+# ONE LINE TO EDIT BEFORE PUBLISHING: archive_base_url. Everything else is already correct
+# -- the checksums are of the actual files the paper used and do not depend on where they
+# are hosted. scripts/fetch_data.py refuses to download while the placeholder is in place
+# and says which line to change.
+#
+# Paths are relative to a STARS2DM_* root (see src/stars2dm_paths.py):
+#   dreams -> $STARS2DM_DREAMS_ROOT     pred        -> $STARS2DM_PRED_ROOT
+#   tng    -> $STARS2DM_TNG_ROOT        checkpoints -> $STARS2DM_CKPT_ROOT
+#   fire   -> $STARS2DM_FIRE_ROOT       cache       -> $STARS2DM_CACHE_ROOT
+#
+# So the layout on the archive is yours to choose; only `url` has to match it.
+
+archive_base_url: "https://REPLACE-ME.invalid/stars2dm/v1"
+
+tiers:
+
+  maps:
+    description: |
+      Paired stellar and dark-matter density maps, plus the simulation-parameter tables.
+      The training input for both models and the truth for every figure. Needed by every
+      tier below -- nothing works without this one.
+      DREAMS 1024 galaxies, TNG50 264, FIRE m12 8; all 128x128 on the z=0.35 grid.
+    files:
+      - root: dreams
+        path: "2D_maps/CDM/MW_zooms/SB5/Maps_rhoDM_TNG_SB5_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        url: "maps/Maps_rhoDM_TNG_SB5_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        bytes: 134217856
+        sha256: "0a45629abc4d2b1bb0352fef66d4109cad0275e6a5bdde5332d4739d95b9ce2e"
+      - root: dreams
+        path: "2D_maps/CDM/MW_zooms/SB5/Maps_rhostar_TNG_SB5_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        url: "maps/Maps_rhostar_TNG_SB5_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        bytes: 134217856
+        sha256: "af4d74945a86b0214fd9673886d94f745ee2faa49174423772bd0b7e7534e6a8"
+      - root: tng
+        path: "2D_maps/TNG50/Maps_rhoDM_TNG50_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        url: "maps/Maps_rhoDM_TNG50_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        bytes: 34603136
+        sha256: "91015f38114fcfee08072807d64b6e679344a2acc7eb790457278cc9c6b4eae4"
+      - root: tng
+        path: "2D_maps/TNG50/Maps_rhostar_TNG50_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        url: "maps/Maps_rhostar_TNG50_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        bytes: 34603136
+        sha256: "14efa0ad5b944f17882b6a6cc83871a593fa6ba7642f03c1bd2d7579363f911f"
+      - root: fire
+        path: "2D_maps/FIREm12/Maps_rhoDM_FIREm12_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        url: "maps/Maps_rhoDM_FIREm12_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        bytes: 1048704
+        sha256: "1a0b0657ffc703d5e38d9270114b34142bd5dfff440f1aff92ee7dae781c1263"
+      - root: fire
+        path: "2D_maps/FIREm12/Maps_rhostar_FIREm12_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        url: "maps/Maps_rhostar_FIREm12_128_z=0.00_csv_fov_z0p350_0p350.npy"
+        bytes: 1048704
+        sha256: "2eaf9b226e99c1f3d5f1499e106c8cd9f7742343b6d78b5d731eee95cbc9048f"
+      - root: dreams
+        path: "Parameters/CDM/MW_zooms/CDM_TNG_MW_SB5.txt"
+        url: "maps/CDM_TNG_MW_SB5.txt"
+        bytes: 46121
+        sha256: "219fd71eb847457001f67390d54a3f916ef2827699ffa4c8d37b1282c1cb8b9a"
+      - root: tng
+        path: "Parameters/TNG50/CDM_TNG_MW_SB5.txt"
+        url: "maps/CDM_TNG_MW_SB5.txt"
+        bytes: 293800
+        sha256: "12f6bc7bd2b3e43da403e597d689a6eefa2812ef3933ac6cc2b12e0147fc24fd"
+      - root: fire
+        path: "Parameters/FIREm12/CDM_TNG_MW_SB5.txt"
+        url: "maps/CDM_TNG_MW_SB5.txt"
+        bytes: 293800
+        sha256: "12f6bc7bd2b3e43da403e597d689a6eefa2812ef3933ac6cc2b12e0147fc24fd"
+
+  checkpoints:
+    description: |
+      The two trained models: last-v95.ckpt (fiducial, every main-text figure) and
+      last-v97.ckpt (Appendix D no-theta ablation). With these plus maps you can
+      regenerate every prediction; without them you need a GPU-day per model to retrain.
+    files:
+      - root: checkpoints
+        path: "last-v95.ckpt"
+        url: "checkpoints/last-v95.ckpt"
+        bytes: 328193246
+        sha256: "c23d8a8b7af643aab70399866d5b13ab3304f08dd8693cffef619903cda1e237"
+      - root: checkpoints
+        path: "last-v97.ckpt"
+        url: "checkpoints/last-v97.ckpt"
+        bytes: 327380206
+        sha256: "cfec4e77f0f9d54928a7266701e903f1483ad0dc86e4e5c7813ec387b368a3b0"
+
+  cache:
+    description: |
+      Reduced figure data: the (n_galaxies, 32) arrays the panels are actually drawn from,
+      plus full draws for the few galaxies whose figures show individual draws. Enough to
+      redraw all 43 figures pixel for pixel, with maps, and nothing else.
+      Built by scripts/pack_figure_cache.py; fill in bytes and sha256 at publish time.
+    files:
+      - root: cache
+        path: "stars2dm-figure-cache.tar.gz"
+        url: "cache/stars2dm-figure-cache.tar.gz"
+        bytes: 0
+        sha256: "REPLACE-ME-run-pack_figure_cache.py"
+
+  predictions:
+    description: |
+      The raw prediction draws, ~15 GB. Only needed to change something the cache fixes:
+      the annulus geometry, the histogram binning, or how draws are combined. Everything
+      else is answered by the cache tier at a thousandth of the size.
+      Per-galaxy npz for v95 and v97 over DREAMS, TNG50 and FIRE m12, plus the five
+      parameter sweeps trimmed to the two grid points the paper plots.
+      Fill in bytes and sha256 at publish time.
+    files:
+      - root: pred
+        path: "stars2dm-predictions.tar"
+        url: "predictions/stars2dm-predictions.tar"
+        bytes: 0
+        sha256: "REPLACE-ME-pack-the-prediction-tree"

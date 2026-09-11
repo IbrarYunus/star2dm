@@ -123,7 +123,8 @@ def profile_delta(draws, true_map, bins):
     return np.array(out_d), np.array(out_s)
 
 
-def collect(true_path, path_fn, gal_ids, bins, n_expected=None, label=""):
+def collect(true_path, path_fn, gal_ids, bins, n_expected=None, label="",
+            draw_slice=None):
     """Gather profile-level Delta for each galaxy that has a draws file.
 
     Missing galaxies are skipped rather than raised on, because the OOD suites are not
@@ -148,6 +149,11 @@ def collect(true_path, path_fn, gal_ids, bins, n_expected=None, label=""):
                 f"found {draws.shape[0]} in {fp}"
             )
         draws = draws * STD_RHO + MEAN_RHO
+        # Sliced AFTER the n_expected check: the check is on what the file holds (50 for a
+        # 5-point sweep grid), the slice picks the grid point (0:10 is config 0, 40:50 is
+        # config 4 -- the two extremes Appendix C plots).
+        if draw_slice is not None:
+            draws = draws[draw_slice]
         d, _ = profile_delta(draws, true_maps[g], bins)
         deltas.append(d)
         ids.append(g)
@@ -166,7 +172,8 @@ _CACHE_ROOT = None
 _CACHE_MODE = "off"
 
 
-def cached_collect(key, true_path, path_fn, gal_ids, bins, n_expected=None, label=""):
+def cached_collect(key, true_path, path_fn, gal_ids, bins, n_expected=None, label="",
+                   draw_slice=None):
     cache = None
     if _CACHE_MODE != "off":
         cache = figure_cache.FigureCache(
@@ -174,6 +181,7 @@ def cached_collect(key, true_path, path_fn, gal_ids, bins, n_expected=None, labe
             kind="calibration", sample=key, true_map=Path(true_path).name,
             n_galaxies=len(list(gal_ids)), n_expected=n_expected,
             bins=f"{len(bins)}:{bins[0]:.6f}:{bins[-1]:.6f}",
+            draw_slice=None if draw_slice is None else f"{draw_slice.start}:{draw_slice.stop}",
         )
         cache.require()
     if cache is not None and cache.readable:
@@ -181,7 +189,7 @@ def cached_collect(key, true_path, path_fn, gal_ids, bins, n_expected=None, labe
         print(f"  {label or key}: from cache ({data['deltas'].shape[0]} galaxies)")
         return data["deltas"], data["ids"]
     deltas, ids = collect(true_path, path_fn, gal_ids, bins,
-                          n_expected=n_expected, label=label)
+                          n_expected=n_expected, label=label, draw_slice=draw_slice)
     if cache is not None and cache.writable:
         cache.save_profiles({"deltas": deltas, "ids": ids}, None)
     return deltas, ids
@@ -324,22 +332,20 @@ def make_sweep_figure(r_inner, r_outer, outfile, ndraws=DEFAULT_NDRAWS,
     k = np.std(d_fid, axis=0)
     print(f"  k = {k}  (from n={ndraws} fiducial ensemble)")
 
-    true_maps = np.load(DREAMS_TRUE)
-    lo, hi = [], []
-    for g in range(1024):
-        fp = (f"{ROOT}/galaxy_{g:04d}/galaxy_{g}_v95_pred_draws_50_"
-              f"heun100_sn1_sweep_5.npz")
-        if not os.path.exists(fp):
-            continue
-        data = np.load(fp)
-        draws = data["draws"]
-        data.close()
-        if draws.ndim == 4:
-            draws = draws[:, 0]
-        draws = draws * STD_RHO + MEAN_RHO
-        lo.append(profile_delta(draws[0:10], true_maps[g], bins)[0])
-        hi.append(profile_delta(draws[40:50], true_maps[g], bins)[0])
-    lo, hi = np.array(lo) / k, np.array(hi) / k
+    # Appendix C shows the two extremes of the 5-point grid, sliced out of the config-major
+    # 50-draw file: draws 0:10 are config 0, draws 40:50 are config 4. Both go through the
+    # cache, so this panel costs kilobytes on a re-run instead of 2.9 GB.
+    def sweep_path(g):
+        return (f"{ROOT}/galaxy_{g:04d}/galaxy_{g}_v95_pred_draws_50_"
+                f"heun100_sn1_sweep_5.npz")
+
+    lo, _ = cached_collect(
+        "sweep_ew_low", DREAMS_TRUE, sweep_path, range(1024), bins,
+        n_expected=50, label="sweep e_w low", draw_slice=slice(0, 10))
+    hi, _ = cached_collect(
+        "sweep_ew_high", DREAMS_TRUE, sweep_path, range(1024), bins,
+        n_expected=50, label="sweep e_w high", draw_slice=slice(40, 50))
+    lo, hi = lo / k, hi / k
     print(f"  sweep galaxies: {lo.shape[0]}")
 
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.6), sharex=True)

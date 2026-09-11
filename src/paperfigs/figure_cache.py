@@ -59,10 +59,16 @@ class FigureCache:
         if mode not in MODES:
             raise ValueError(f"cache mode must be one of {MODES}, got {mode!r}")
         self.mode = mode
-        self.key_parts = {k: (None if v is None else str(v)) for k, v in sorted(key_parts.items())}
+        # A key part whose value is None is dropped, not hashed as the string "None". This
+        # is what lets an optional argument be ADDED to a call site later without
+        # invalidating every entry built before it existed: passing draw_slice=None must
+        # hash identically to not passing draw_slice at all. Anything with a value is
+        # hashed, so a real setting still separates entries.
+        self.key_parts = {k: str(v) for k, v in sorted(key_parts.items()) if v is not None}
         digest = hashlib.sha256(
             json.dumps(self.key_parts, sort_keys=True).encode()
         ).hexdigest()[:12]
+        self.digest = digest
         # The directory name is a readable prefix plus the hash. Only the hash decides
         # identity -- the prefix exists so `ls` and pack_figure_cache.py --list are legible,
         # and is built from whichever identifying fields this kind of entry actually has
@@ -70,7 +76,7 @@ class FigureCache:
         prefix = "-".join(
             _slug(self.key_parts[k], limit=24)
             for k in ("version", "kind", "sample")
-            if self.key_parts.get(k) not in (None, "None")
+            if self.key_parts.get(k)
         ) or "entry"
         name = f"{prefix}__{digest}"
         self.dir = Path(root) / name

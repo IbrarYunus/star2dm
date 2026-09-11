@@ -76,7 +76,11 @@ def main():
         key = meta["key"]
         summary = " ".join(f"{k}={v}" for k, v in key.items() if v not in (None, "None"))
         n_draws = len(list(path.glob("draws_galaxy_*.npz")))
-        print(f"  {human(size):>9}  {len(meta['arrays']):>3} arrays  "
+        # The digest is printed because two entries can have identical-looking summaries --
+        # a key part added later, or one whose value does not fit the line. The digest is
+        # what actually distinguishes them, and a duplicate summary with two digests is the
+        # signature of a stale entry left behind by a changed key.
+        print(f"  {path.name.rsplit('__', 1)[1]}  {human(size):>9}  {len(meta['arrays']):>3} arrays  "
               f"{n_draws:>2} galaxy-draw files  {summary}")
     print(f"\n{len(found)} entries, {human(total)} total")
 
