@@ -96,8 +96,8 @@ tiers:
       - root: cache
         path: "stars2dm-figure-cache.tar.gz"
         url: "cache/stars2dm-figure-cache.tar.gz"
-        bytes: 0
-        sha256: "REPLACE-ME-run-pack_figure_cache.py"
+        bytes: 130316462
+        sha256: "18ff3e1a4e48a16df218604e45d68ec133d9ca4d0cb4348103eb8c2bd60693df"
 
   predictions:
     description: |

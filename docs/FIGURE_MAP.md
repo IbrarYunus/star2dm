@@ -14,7 +14,14 @@ sbatch --export=ALL,STAGE=<stage> scripts/07_figures.sh
 
 `schematic.pdf` is the exception: it is a TikZ drawing built by `src/paperfigs/make_schematic.py`,
 which regenerates its map tiles from the real maps rather than cropping them out of Figure 1.
-It needs a LaTeX toolchain, which the rest of this repository does not.
+It is the only figure needing a LaTeX toolchain, and it is not part of any stage:
+
+```bash
+cd src/paperfigs && python make_schematic.py
+```
+
+Needs `pdflatex` with tikz, xcolor and mathptmx, plus the maps. Verified to reproduce the
+published figure pixel for pixel.
 
 Published copies of every file below are in `reference_figures/`, so a regenerated figure can
 be diffed against the one in the paper.

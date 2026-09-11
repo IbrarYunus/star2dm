@@ -54,7 +54,14 @@ is 0 only if all 43 reproduced. Anything else is a real difference worth underst
 cache path is verified pixel-for-pixel, so "close enough" is not the expected outcome.
 
 `docs/FIGURE_MAP.md` says which stage makes which figure. Figure 1's schematic is the one
-exception: it is TikZ, built by `src/paperfigs/make_schematic.py`, and needs a LaTeX toolchain.
+exception -- it is TikZ and belongs to no stage:
+
+```bash
+cd src/paperfigs && python make_schematic.py     # needs pdflatex
+```
+
+All 43 published figures have been reproduced pixel-for-pixel this way, from the cache and
+maps alone.
 
 **What the cache will not do:** change the annulus geometry, the histogram binning, or how
 draws are combined. Those are upstream of what it stores. All three are part of the cache key,
