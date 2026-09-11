@@ -42,6 +42,17 @@ Figures land in `$STARS2DM_FIG_DIR` (default `data/figures/`) as PDF with a PNG 
 alongside. `reference_figures/` holds the published copies to diff against — the panels come
 out pixel-identical, so a difference means something real changed.
 
+Check the result against the paper:
+
+```bash
+python tests/verify_reproduction.py
+```
+
+It rasterizes each regenerated PDF and its published counterpart and compares pixels — a byte
+comparison is useless, because matplotlib stamps a creation date into every file. Exit status
+is 0 only if all 43 reproduced. Anything else is a real difference worth understanding: the
+cache path is verified pixel-for-pixel, so "close enough" is not the expected outcome.
+
 `docs/FIGURE_MAP.md` says which stage makes which figure. Figure 1's schematic is the one
 exception: it is TikZ, built by `src/paperfigs/make_schematic.py`, and needs a LaTeX toolchain.
 
