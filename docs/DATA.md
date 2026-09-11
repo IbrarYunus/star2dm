@@ -23,7 +23,7 @@ beside the source.
 | `maps` | 325 MB | everything. The training input and the truth for every figure. |
 | `cache` | ~150 MB | redrawing all 43 figures. Needs `maps`. |
 | `checkpoints` | 625 MB | regenerating predictions without retraining. Needs `maps`. |
-| `predictions` | ~23 GB | changing the annulus geometry, binning, or draw combiner. |
+| `predictions` | 23.4 GB | changing the annulus geometry, binning, or draw combiner. |
 
 Pick the smallest tier that answers your question. `cache` and `predictions` answer the same
 questions about the *published* figures; `predictions` additionally lets you ask different
@@ -110,8 +110,9 @@ The sweep files are config-major: `pred_draws_50_heun100_sn1_sweep_5.npz` holds 
 × 10 draws, so draws `0:10` are grid point 0 and `40:50` are grid point 4. Appendix C plots
 only those two extremes.
 
-The tier ships these files **whole**, all five grid points, even though that is 8.6 GB of the
-23 GB. Trimming them to the two plotted slices was the original plan and is wrong twice over:
+The tier ships these files **whole**, all five grid points, even though that is 14.3 GB of
+the 23.4 GB total — the single largest thing in the archive. Trimming them to the two
+plotted slices was the original plan and is wrong twice over:
 it would break the published `--draws-slice 40:50` commands, since grid point 4 would no
 longer be at index 40; and this tier exists precisely for people who want to ask a question
 the paper did not, for whom the three unplotted grid points are the interesting part. If you

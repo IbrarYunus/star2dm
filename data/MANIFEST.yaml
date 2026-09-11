@@ -101,7 +101,8 @@ tiers:
 
   predictions:
     description: |
-      The raw prediction draws, ~23 GB. Only needed to change something the cache fixes:
+      The raw prediction draws: 23.4 GB across 12,820 files, measured. Only needed to
+      change something the cache fixes:
       the annulus geometry, the histogram binning, or how draws are combined. Everything
       else is answered by the cache tier at a thousandth of the size.
       Per-galaxy npz for v95 and v97 over DREAMS, TNG50 and FIRE m12, plus the five
