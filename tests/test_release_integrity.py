@@ -236,6 +236,23 @@ with tempfile.TemporaryDirectory() as tmp:
     assert raised, "cache read mode did not fail on a missing entry"
 print("figure cache: round-trip, float32 draws, key isolation, loud read failure  ok")
 
+# --- the overlay path is cached too ------------------------------------------------------
+# Four of the 43 figures overlay a second version (Fig 10, App B2, App D4, App D5). That
+# second load went through its own function and was NOT cached, so those four could not be
+# redrawn from the cache alone -- invisible in a run that had the draws present, which is how
+# it survived the first full verification. The cache consult must also come BEFORE the glob
+# for draw files, or discovery raises first and the cache is never reached.
+import inspect
+sig = inspect.signature(prpf.load_second_version_bundle)
+assert "cache" in sig.parameters, "load_second_version_bundle no longer takes a cache"
+src = inspect.getsource(prpf.load_second_version_bundle)
+i_cache = src.index("cache.readable")
+i_discover = src.index("discover_galaxy_indices_for_version")
+assert i_cache < i_discover, (
+    "the overlay cache is consulted after the draw-file glob; a cache-only reader will hit "
+    "a FileNotFoundError from discovery before the cache is ever read")
+print("overlay cache: wired, and consulted before draw discovery  ok")
+
 
 # --- docs describe the tree that actually exists ----------------------------------------
 import re
@@ -260,7 +277,8 @@ assert set(manifest["tiers"]) == {"maps", "checkpoints", "cache", "predictions"}
 for name, tier in manifest["tiers"].items():
     assert tier["files"], f"manifest tier {name} is empty"
     for entry in tier["files"]:
-        assert set(entry) == {"root", "path", "url", "bytes", "sha256"}, entry
+        assert {"root", "path", "url", "bytes", "sha256"} <= set(entry), entry
+        assert set(entry) <= {"root", "path", "url", "bytes", "sha256", "extract"}, entry
 # The map and checkpoint hashes are of real files and must be real hashes, not placeholders.
 for name in ("maps", "checkpoints"):
     for entry in manifest["tiers"][name]["files"]:
@@ -269,6 +287,15 @@ for name in ("maps", "checkpoints"):
 # Two entries sharing a url would overwrite each other on the archive. The three parameter
 # tables are the live case: DREAMS, TNG50 and FIRE each ship a file named CDM_TNG_MW_SB5.txt,
 # and a flat url layout silently published one of them three times.
+# Every tier must reach a base url: its own, or the archive-wide one.
+for name, tier in manifest["tiers"].items():
+    assert tier.get("base_url") or manifest.get("archive_base_url"), f"{name} has no base url"
+# A tier delivered as one tarball is useless unless something unpacks it.
+for name, tier in manifest["tiers"].items():
+    for entry in tier["files"]:
+        if entry["path"].endswith((".tar", ".tar.gz")):
+            assert entry.get("extract"), f"{name}/{entry['path']} is a tarball but not marked extract"
+
 urls = [e["url"] for t in manifest["tiers"].values() for e in t["files"]]
 dupes = {u for u in urls if urls.count(u) > 1}
 assert not dupes, f"manifest urls collide: {sorted(dupes)}"

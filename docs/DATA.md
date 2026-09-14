@@ -120,9 +120,73 @@ only want the published panels, the `cache` tier already has them at a thousandt
 
 ## Publishing the archive
 
-`scripts/stage_archive.py` assembles the upload directory in exactly the layout
-`MANIFEST.yaml` gives each file, so the whole thing uploads verbatim and only
-`archive_base_url` has to change afterwards.
+The published archive is **two Zenodo records**, because the prediction draws are 23.4 GB
+against 1.05 GB for everything else, and everything else is what a reader actually needs:
+
+| record | tiers | size | role |
+|---|---|---|---|
+| 1 | maps + checkpoints + cache | 1.05 GB | cited in the paper; reproduces every figure and number |
+| 2 | predictions | 23.4 GB | linked from record 1; only for changing binning, geometry or the combiner |
+
+`MANIFEST.yaml` expresses this with `archive_base_url` for record 1 and a per-tier
+`base_url` on `predictions` for record 2. Those two lines are the only edits.
+
+Use the **versioned** record URL, not the concept DOI. A concept DOI follows the latest
+version, so publishing a new version would silently repoint the URLs at files whose
+checksums no longer match the ones in the manifest.
+
+### Procedure
+
+1. **Stage.** `scripts/stage_archive.py` assembles the upload directory in exactly the layout
+   `MANIFEST.yaml` gives each file, so it uploads verbatim.
+
+   ```bash
+   python scripts/stage_archive.py --out dist/ --all --dry-run   # the plan
+   python scripts/stage_archive.py --out dist/ --tier maps --tier checkpoints --tier cache
+   python scripts/stage_archive.py --out dist/ --tier predictions
+   ```
+
+   It re-checksums maps and checkpoints against the manifest as it goes, and prints the size
+   and sha256 of the two tarballs it builds. Paste those into the manifest.
+
+2. **Create both drafts on Zenodo** (or sandbox.zenodo.org first — same API, throwaway DOIs).
+   Note each draft's record id from its URL. Reserve the DOI on each so it can go in the
+   paper before publication.
+
+3. **Upload.** The API is more reliable than the browser for the 23 GB record. Each draft has
+   a bucket URL in its JSON (`links.bucket`):
+
+   ```bash
+   TOKEN=...                      # personal access token, deposit:write scope
+   BUCKET=...                     # from the draft's links.bucket
+   curl --upload-file dist/maps/dreams/Maps_rhoDM_TNG_SB5_128_z=0.00_csv_fov_z0p350_0p350.npy         "$BUCKET/Maps_rhoDM_TNG_SB5_128_z=0.00_csv_fov_z0p350_0p350.npy?access_token=$TOKEN"
+   ```
+
+   The filename in the bucket URL is what the record serves, so it must match the `url` field
+   in the manifest, minus the base.
+
+4. **Set the two base URLs** in `MANIFEST.yaml` to the records' file roots, then check the
+   pattern against a real file listed on the record page rather than assuming — Zenodo has
+   changed it before.
+
+5. **Test before publishing.** Draft files need the token, so either test with it appended or
+   publish record 1 first and test that:
+
+   ```bash
+   python scripts/fetch_data.py --tier maps
+   python scripts/fetch_data.py --verify --tier maps
+   ```
+
+6. **Publish.** Files become immutable and the DOIs mint. Put record 1's concept DOI in the
+   paper, and link record 2 from record 1's description.
+
+7. **Commit the manifest** and run `python tests/test_release_integrity.py` once more.
+
+Files are hard-linked when the staging directory is on the same filesystem as the source and
+copied otherwise — staging 23 GB onto the same filesystem costs no extra space.
+
+The prediction tarball is uncompressed on purpose: npz members are already deflated, so gzip
+buys almost nothing and costs hours at that size.
 
 ```bash
 python scripts/stage_archive.py --out dist/ --all --dry-run   # the plan, touches nothing
@@ -130,17 +194,6 @@ python scripts/stage_archive.py --out dist/ --tier maps --tier checkpoints
 python scripts/stage_archive.py --out dist/ --tier cache      # needs the cache built
 python scripts/stage_archive.py --out dist/ --tier predictions
 ```
-
-Maps and checkpoints are re-checksummed against the manifest as they are staged, so a
-corrupted source is caught before upload rather than after. The cache and prediction tiers
-are built here rather than listed, so the script prints their sizes and hashes for you to
-paste into the manifest.
-
-Files are hard-linked when the staging directory is on the same filesystem as the source and
-copied otherwise — staging 23 GB onto the same filesystem costs no extra space.
-
-The prediction tarball is uncompressed on purpose: npz members are already deflated, so gzip
-buys almost nothing and costs hours at that size.
 
 ## Regenerating the maps yourself
 

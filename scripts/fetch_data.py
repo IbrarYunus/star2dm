@@ -20,6 +20,7 @@ quiet failure: the arrays still load, the figures still draw, and the numbers ar
 import argparse
 import hashlib
 import sys
+import tarfile
 import urllib.request
 from pathlib import Path
 
@@ -68,13 +69,37 @@ def target_path(entry):
     return ROOTS[entry["root"]]() / entry["path"]
 
 
-def check_base_url(manifest):
-    base = manifest.get("archive_base_url", "")
-    if PLACEHOLDER in base:
+def extract_tarball(path):
+    """Unpack a fetched tier in place. The tarball is kept so --verify still has something
+    to checksum; the members are what the code actually reads."""
+    dest = path.parent
+    print(f"        unpacking into {dest}")
+    with tarfile.open(path) as tar:
+        for member in tar.getmembers():
+            # A member path escaping the destination would write outside the data root.
+            resolved = (dest / member.name).resolve()
+            if not str(resolved).startswith(str(dest.resolve())):
+                raise SystemExit(f"Refusing to unpack {member.name}: escapes {dest}")
+        tar.extractall(dest)
+
+
+def tier_base_url(manifest, tier_name):
+    """Base URL for one tier: its own if it has one, otherwise the archive-wide default.
+
+    A tier may live somewhere else entirely -- the published archive is split across two
+    Zenodo records, because the 23 GB of prediction draws would otherwise sit in front of the
+    1 GB that everyone actually needs. Per-tier overrides keep that a two-line change instead
+    of thirteen absolute URLs.
+    """
+    tier = manifest["tiers"][tier_name]
+    base = tier.get("base_url") or manifest.get("archive_base_url", "")
+    if PLACEHOLDER in base or not base:
+        where = (f"tiers.{tier_name}.base_url" if tier.get("base_url")
+                 else "archive_base_url")
         raise SystemExit(
-            f"The archive is not published yet: archive_base_url in {MANIFEST} is still a\n"
-            f"placeholder ({base}).\n\n"
-            f"If you are the author: upload the tiers, then set that one line to the base URL.\n"
+            f"The '{tier_name}' tier is not published yet: {where} in {MANIFEST} is still a\n"
+            f"placeholder ({base or 'empty'}).\n\n"
+            f"If you are the author: upload the tier, then set that one line to its base URL.\n"
             f"If you are not: the paper's data link is the place to look -- this repository\n"
             f"was published before the archive URL was assigned.\n\n"
             f"--verify and --list work without it.")
@@ -88,6 +113,8 @@ def cmd_list(manifest):
         have = sum(1 for f in tier["files"] if target_path(f).exists())
         print(f"  {name:<13} {human(total):>9}  {len(tier['files']):>5} files  "
               f"{have} present")
+        if tier.get("base_url"):
+            print(f"                at {tier['base_url']}")
         for line in tier["description"].strip().splitlines():
             print(f"                {line}")
         print()
@@ -123,14 +150,20 @@ def cmd_verify(manifest, tiers):
     print("\nall present files verified")
 
 
-def cmd_fetch(manifest, tiers, base):
+def cmd_fetch(manifest, tiers):
+    # Resolve every tier's URL before downloading anything, so an unpublished tier fails
+    # immediately rather than after the first 300 MB of a multi-tier fetch.
+    bases = {name: tier_base_url(manifest, name) for name in tiers}
     for name in tiers:
         tier = manifest["tiers"][name]
+        base = bases[name]
         print(f"=== {name} ===")
         for entry in tier["files"]:
             path = target_path(entry)
             if path.exists() and path.stat().st_size == entry["bytes"]:
                 print(f"  have  {entry['path']}")
+                if entry.get("extract"):
+                    extract_tarball(path)
                 continue
             url = f"{base}/{entry['url']}"
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -148,6 +181,8 @@ def cmd_fetch(manifest, tiers, base):
                         f"  got      {actual}\n  expected {entry['sha256']}\n"
                         f"Download discarded.")
             part.rename(path)
+            if entry.get("extract"):
+                extract_tarball(path)
     print("\ndone")
 
 
@@ -172,7 +207,7 @@ def main():
     if args.verify:
         cmd_verify(manifest, tiers)
         return
-    cmd_fetch(manifest, tiers, check_base_url(manifest))
+    cmd_fetch(manifest, tiers)
 
 
 if __name__ == "__main__":

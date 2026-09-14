@@ -2048,6 +2048,7 @@ def load_second_version_bundle(
     file_pattern=None,
     draw_slice=None,
     radial_centers_fallback=None,
+    cache=None,
 ):
     tag = version_tag or VERSION_TAG_2
     nd = num_draws if num_draws is not None else (NUM_DRAWS_2 or NUM_DRAWS)
@@ -2055,6 +2056,21 @@ def load_second_version_bundle(
         draw_slice if draw_slice is not None else DRAWS_SLICE_2
     )
     pattern = file_pattern if file_pattern is not None else DRAWS_FILE_PATTERN_2
+
+    # Ahead of the discovery below, which globs for draw files: a reader working from the
+    # cache has none, so discovery would raise before the cache was ever consulted.
+    if cache is not None and cache.readable:
+        print(f"Reading overlay reduced data: {cache.describe()}")
+        structured_v2, draw_profiles_v2 = cache.load_profiles()
+        structured_v2 = {k: np.asarray(v) for k, v in structured_v2.items()}
+        cached_ids = cache.cached_galaxy_ids()
+        if cached_ids:
+            draws_v2 = {'galaxy_ids': np.array(cached_ids),
+                        'x_pred_draws': np.stack([cache.load_galaxy_draws(g) for g in cached_ids])}
+        else:
+            draws_v2 = {'galaxy_ids': np.array([], dtype=int),
+                        'x_pred_draws': np.empty((0, 0, 0, 0), dtype=np.float32)}
+        return build_overlay_context(structured_v2, draw_profiles_v2, all_draws=draws_v2)
 
     if DATA_LAYOUT == "per_galaxy":
         root = Path(pred_root or PRED_ROOT)
@@ -2108,6 +2124,14 @@ def load_second_version_bundle(
             )
             draws_v2 = align_draws_to_structured(draws_v2, structured_v2)
             draw_profiles_v2 = compute_and_derive_draw_profiles(draws_v2['x_pred_draws'])
+        if cache is not None and cache.writable:
+            cache.save_profiles(structured_v2, draw_profiles_v2)
+            if draws_v2 is not None and len(draws_v2['galaxy_ids']):
+                for galaxy_idx in PER_GALAXY_INDICES:
+                    row = _draws_row_for_galaxy(draws_v2, galaxy_idx)
+                    if row is not None:
+                        cache.save_galaxy_draws(galaxy_idx, draws_v2['x_pred_draws'][row])
+            print(f"Wrote overlay reduced data: {cache.describe()}")
         return build_overlay_context(structured_v2, draw_profiles_v2, all_draws=draws_v2)
 
     n_samples = count_radial_profile_samples(data_dir)
@@ -3203,6 +3227,22 @@ def main(
             print(f"Wrote reduced figure data: {cache.describe()}")
 
     overlay = None
+    overlay_cache = None
+    if VERSION_TAG_2 and cache_mode != "off":
+        overlay_cache = figure_cache.FigureCache(
+            cache_dir or stars2dm_paths.CACHE_ROOT,
+            cache_mode,
+            kind="overlay",
+            version=VERSION_TAG_2,
+            primary=VERSION_TAG,
+            pattern=DRAWS_FILE_PATTERN_2,
+            num_draws=NUM_DRAWS_2,
+            draw_slice=DRAWS_SLICE_2,
+            ensemble=_pdl.ENSEMBLE_COMBINE,
+            profile_agg=_pdl.PROFILE_AGG,
+            denominator=DEVIATION_DENOMINATOR,
+        )
+        overlay_cache.require()
     if VERSION_TAG_2:
         data_dir_v2 = None
         if DATA_LAYOUT != "per_galaxy":
@@ -3224,6 +3264,7 @@ def main(
             file_pattern=DRAWS_FILE_PATTERN_2,
             draw_slice=DRAWS_SLICE_2,
             radial_centers_fallback=radial_centers_v1,
+            cache=overlay_cache,
         )
 
     if plot_pred_vs_true:

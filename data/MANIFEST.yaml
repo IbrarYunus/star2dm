@@ -1,9 +1,17 @@
 # Where the data that is not in this repository lives, and what it should hash to.
 #
-# ONE LINE TO EDIT BEFORE PUBLISHING: archive_base_url. Everything else is already correct
-# -- the checksums are of the actual files the paper used and do not depend on where they
-# are hosted. scripts/fetch_data.py refuses to download while the placeholder is in place
-# and says which line to change.
+# TWO LINES TO EDIT BEFORE PUBLISHING: the base_url of each tier group. Everything else is
+# already correct -- the checksums are of the actual files the paper used and do not depend
+# on where they are hosted. scripts/fetch_data.py refuses to download while a placeholder is
+# in place and names the line to change.
+#
+# The archive is two Zenodo records, because the prediction draws are 23.4 GB against 1.05 GB
+# for everything else, and everything else is what a reader actually needs. Record 1 is the
+# one cited in the paper. A tier without its own base_url falls back to archive_base_url.
+#
+# Use the VERSIONED record URL, not the concept DOI. A concept DOI follows the latest version,
+# so publishing a new version would silently repoint these URLs at files whose checksums no
+# longer match the ones below.
 #
 # Paths are relative to a STARS2DM_* root (see src/stars2dm_paths.py):
 #   dreams -> $STARS2DM_DREAMS_ROOT     pred        -> $STARS2DM_PRED_ROOT
@@ -12,7 +20,7 @@
 #
 # So the layout on the archive is yours to choose; only `url` has to match it.
 
-archive_base_url: "https://REPLACE-ME.invalid/stars2dm/v1"
+archive_base_url: "https://REPLACE-ME.invalid/record-1/files"
 
 tiers:
 
@@ -96,10 +104,13 @@ tiers:
       - root: cache
         path: "stars2dm-figure-cache.tar.gz"
         url: "cache/stars2dm-figure-cache.tar.gz"
-        bytes: 130316462
-        sha256: "18ff3e1a4e48a16df218604e45d68ec133d9ca4d0cb4348103eb8c2bd60693df"
+        extract: true
+        bytes: 130339915
+        sha256: "5c1dcc711c7c88c0148165d14f3bedcce1828a6e1052a8976ea32c40f08ed5ad"
 
   predictions:
+    # Record 2: the 23.4 GB tier, on its own so it does not sit in front of record 1.
+    base_url: "https://REPLACE-ME.invalid/record-2/files"
     description: |
       The raw prediction draws: 23.4 GB across 12,820 files, measured. Only needed to
       change something the cache fixes:
@@ -114,5 +125,6 @@ tiers:
       - root: pred
         path: "stars2dm-predictions.tar"
         url: "predictions/stars2dm-predictions.tar"
+        extract: true
         bytes: 0
         sha256: "REPLACE-ME-pack-the-prediction-tree"
