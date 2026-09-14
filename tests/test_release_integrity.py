@@ -253,6 +253,31 @@ assert i_cache < i_discover, (
     "a FileNotFoundError from discovery before the cache is ever read")
 print("overlay cache: wired, and consulted before draw discovery  ok")
 
+# --- staging dereferences symlinks -------------------------------------------------------
+# On Linux os.link() hard-links a symlink itself rather than its target, so staging a source
+# reached through a symlink produced an 84-byte dangling pointer where a 313 MB checkpoint
+# should be. `ls -l dist/` looked plausible and a size check passed, because stat follows
+# symlinks; a tar of the staged directory came to 0 bytes. Check the staged result, not the
+# intent.
+sys.path.insert(0, str(REPO / "scripts"))
+import importlib.util as _ilu
+_spec = _ilu.spec_from_file_location("stage_archive", REPO / "scripts/stage_archive.py")
+_stage = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_stage)
+
+with tempfile.TemporaryDirectory() as tmp:
+    tmp = pathlib.Path(tmp)
+    real = tmp / "real.bin"
+    real.write_bytes(b"x" * 4096)
+    link = tmp / "via_symlink.bin"
+    link.symlink_to(real)
+    out = tmp / "staged" / "file.bin"
+    _stage.place(link, out, dry=False)
+    assert not out.is_symlink(), "staging produced a symlink"
+    assert out.is_file() and out.stat().st_size == 4096, "staged file is not the real bytes"
+    assert out.read_bytes() == b"x" * 4096
+print("archive staging: dereferences symlinks, verifies the staged result  ok")
+
 
 # --- docs describe the tree that actually exists ----------------------------------------
 import re

@@ -135,6 +135,34 @@ Use the **versioned** record URL, not the concept DOI. A concept DOI follows the
 version, so publishing a new version would silently repoint the URLs at files whose
 checksums no longer match the ones in the manifest.
 
+### When to publish
+
+**At acceptance, not at submission.** Once a Zenodo record is published its files are
+immutable — metadata stays editable, and you can always publish a *new version* with a new
+versioned DOI, but the old version is permanent.
+
+The reason that matters here is that the cache tier is *derived from the figures*. A referee
+asking for a different radial binning, a re-coloured panel or one more ablation changes
+figures, which changes the cache, which changes its checksum — and that is the tier most
+readers will actually download. Maps and checkpoints are stabler, but an ablation request
+moves those too.
+
+What to do at submission instead:
+
+- **Reserve the DOIs** on two drafts. Zenodo gives you the DOI string without publishing, so
+  it can go in the data-availability statement while nothing becomes immutable.
+- **Rehearse on `sandbox.zenodo.org`** — same API, throwaway DOIs. Worth doing for the 23 GB
+  record specifically, so its upload misbehaves on a day when that does not matter.
+- Publish the code repository if you want; GitHub stays mutable, so code-at-submission and
+  data-at-acceptance is a reasonable split.
+
+If the journal or a referee needs the data during review, Zenodo has embargoed and
+restricted-access modes: a DOI that resolves, with the files gated until a date or released
+on request. Check their current policy rather than trusting this paragraph.
+
+Rebuilding the cache after a change is one `bash scripts/submit_all.sh figures` round plus
+`stage_archive.py`, so waiting costs very little.
+
 ### Procedure
 
 1. **Stage.** `scripts/stage_archive.py` assembles the upload directory in exactly the layout

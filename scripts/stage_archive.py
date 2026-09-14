@@ -75,16 +75,31 @@ def sha256_file(path):
 
 
 def place(src, dst, dry):
-    """Hard-link if possible, else copy. Same bytes either way."""
+    """Hard-link if possible, else copy. Same bytes either way.
+
+    src is resolved first. On Linux os.link() does NOT follow a symlink -- it hard-links the
+    link itself -- so a source that is a symlink produces a staged "file" that is an 84-byte
+    dangling pointer. That is invisible to `ls -l dist/`, survives a size check against the
+    manifest (stat follows symlinks), and uploads as a broken link. It happened here: the
+    checkpoints are reached through data/checkpoints/last-v9*.ckpt, which are symlinks into
+    the training tree, and a tar of the staged directory came to 0 bytes.
+    """
     if dry:
         return
+    src = src.resolve()
     dst.parent.mkdir(parents=True, exist_ok=True)
-    if dst.exists():
+    if dst.exists() or dst.is_symlink():
         dst.unlink()
     if src.stat().st_dev == os.stat(dst.parent).st_dev:
         os.link(src, dst)
     else:
         dst.write_bytes(src.read_bytes())
+    # What was staged is what gets uploaded, so check the result rather than the intent.
+    if dst.is_symlink() or not dst.is_file():
+        raise SystemExit(f"Staged {dst} is not a regular file; refusing to continue.")
+    if dst.stat().st_size != src.stat().st_size:
+        raise SystemExit(f"Staged {dst} is {dst.stat().st_size} bytes, source is "
+                         f"{src.stat().st_size}; refusing to continue.")
 
 
 def stage_listed(manifest, tier_name, out, dry, verify):
