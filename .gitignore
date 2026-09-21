@@ -1,10 +1,14 @@
 # Data lives outside the repository; scripts/fetch_data.py populates data/.
-data/DREAMS_data/
-data/TNG_data/
-data/FIRE_data/
-data/checkpoints/
-data/figure_cache/
-data/figures/
+# No trailing slashes: a trailing slash matches directories ONLY, so these rules silently
+# failed to match the symlinks used to point data/ at a local copy, and seven of them were
+# committed with absolute cluster paths inside.
+data/DREAMS_data
+data/TNG_data
+data/FIRE_data
+data/checkpoints
+data/figure_cache
+data/figures
+data/anisotropy_*
 
 # Run outputs
 logs/
