@@ -6,6 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "stars2dm"
 version = "1.0.0"
 description = "Stochastic-interpolant prediction of dark matter density maps from stellar density maps"
+license = "MIT"
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "torch>=2.6",

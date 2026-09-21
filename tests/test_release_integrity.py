@@ -7,7 +7,7 @@ pred_data_loaders.py or baryonbridge/config.py. Each assertion below stands for 
 was live at some point and produced a plausible wrong answer rather than an error; the
 comments say which.
 """
-import os, sys, importlib, pathlib
+import os, re, sys, importlib, pathlib
 REPO = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(1, str(REPO / "src" / "paperfigs"))
@@ -278,9 +278,34 @@ with tempfile.TemporaryDirectory() as tmp:
     assert out.read_bytes() == b"x" * 4096
 print("archive staging: dereferences symlinks, verifies the staged result  ok")
 
+# --- the three unit conversions are pinned ----------------------------------------------
+# They replace a 451-line third-party module that used to be vendored here (see
+# docs/THIRD_PARTY.md). The values were bit-identical to the originals when the module was
+# removed, and a refactor must not move them: they scale velocities and angles during map
+# construction, where a small error looks like a physical result.
+sys.path.insert(0, str(REPO / "src/mapgen"))
+import units as _units
+assert _units.km_per_kpc == 3.0856775814913676e+16, _units.km_per_kpc
+assert _units.sec_per_Gyr == 3.15576e+16, _units.sec_per_Gyr
+assert _units.radian_per_degree == 0.017453292519943295, _units.radian_per_degree
+print("mapgen units: three constants bit-identical to the originals  ok")
+
+# --- the things a public repository must not ship without --------------------------------
+for required in ("LICENSE", "CITATION.cff", "README.md", "docs/THIRD_PARTY.md"):
+    assert (REPO / required).is_file(), f"missing {required}"
+assert "MIT" in (REPO / "LICENSE").read_text()
+# A vendored fork of someone else's code must say so somewhere a reader will look.
+assert "BaryonBridge" in (REPO / "docs/THIRD_PARTY.md").read_text()
+# No third-party author contact details: a 451-line module by other people used to be
+# vendered here, carrying their email addresses into a public repository.
+emails = re.findall(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
+                    " ".join(p.read_text(errors="ignore")
+                             for p in (REPO / "src").rglob("*.py")))
+assert not emails, f"third-party contact details in src/: {sorted(set(emails))}"
+print("release hygiene: licence, citation, attribution, no stray contact details  ok")
+
 
 # --- docs describe the tree that actually exists ----------------------------------------
-import re
 import yaml
 
 figmap = (REPO / "docs/FIGURE_MAP.md").read_text()

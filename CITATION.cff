@@ -1,0 +1,52 @@
+cff-version: 1.2.0
+title: "stars2dm: stochastic-interpolant prediction of dark matter maps from stellar density"
+message: >-
+  If you use this software or the accompanying data, please cite the paper below.
+type: software
+authors:
+  - family-names: Ou
+    given-names: Xiaowei
+    orcid: https://orcid.org/0000-0002-4669-9967
+  - family-names: Necib
+    given-names: Lina
+    orcid: https://orcid.org/0000-0003-2806-1414
+  - family-names: Cuesta-Lazaro
+    given-names: Carolina
+  - family-names: Torrey
+    given-names: Paul
+    orcid: https://orcid.org/0000-0002-5653-0786
+  - family-names: Feng
+    given-names: Berthy T.
+  - family-names: Garcia
+    given-names: Alex M.
+    orcid: https://orcid.org/0000-0002-8111-9884
+  - family-names: Li
+    given-names: Jiaxuan
+    orcid: https://orcid.org/0000-0001-9592-4190
+  - family-names: Vogelsberger
+    given-names: Mark
+    orcid: https://orcid.org/0000-0001-8593-7692
+  - family-names: Shen
+    given-names: Xuejian
+    orcid: https://orcid.org/0000-0002-6196-823X
+version: 1.0.0
+# TODO before publication: add the journal reference and DOI once the paper is accepted,
+# and the Zenodo DOI for the data archive (see docs/DATA.md, "When to publish").
+preferred-citation:
+  type: article
+  title: >-
+    From starlight to dark matter: a diffusion model approach to map dark matter
+    from stellar density
+  authors:
+    - family-names: Ou
+      given-names: Xiaowei
+      orcid: https://orcid.org/0000-0002-4669-9967
+    - family-names: Necib
+      given-names: Lina
+      orcid: https://orcid.org/0000-0003-2806-1414
+    - family-names: Cuesta-Lazaro
+      given-names: Carolina
+    - family-names: Torrey
+      given-names: Paul
+      orcid: https://orcid.org/0000-0002-5653-0786
+  year: 2026

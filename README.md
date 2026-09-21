@@ -2,6 +2,9 @@
 
 Stochastic-interpolant prediction of dark matter density maps from stellar density maps.
 
+Companion code for *From starlight to dark matter: a diffusion model approach to map dark
+matter from stellar density* (Ou et al.).
+
 Code and trained models for the paper. Contains the model, the two trained checkpoints used
 in the paper, the analysis and figure code that produces all 43 figures, and the map
 generation code for readers with access to the raw simulations.
@@ -110,3 +113,23 @@ draw combiner. Those choices are made upstream of what it stores, and `--cache-m
 will serve you the arrays built under the published settings regardless. Every one of those
 settings is part of the cache key, so a mismatch produces a cache miss rather than a quietly
 wrong number — but acting on a different choice means fetching the draws.
+
+## Citing
+
+See [CITATION.cff](CITATION.cff). Cite the paper; the journal reference and the data DOI go
+in there once the paper is accepted.
+
+## Licence and attribution
+
+MIT — see [LICENSE](LICENSE).
+
+`src/baryonbridge/` is a trimmed fork of [BaryonBridge](https://github.com/florpi/BaryonBridge),
+included with its author's agreement. [docs/THIRD_PARTY.md](docs/THIRD_PARTY.md) records what
+was changed and removed, and credits the simulation suites the maps are built from.
+
+## Support
+
+This repository accompanies a published paper and is **archival**: it is not actively
+maintained, and issues may not be answered. It is released in the hope that it is useful, and
+because the numbers in the paper should be checkable. If you find something wrong, please do
+open an issue anyway — a correction is worth more than a reply.

@@ -3,7 +3,7 @@
 import numpy as np
 import h5py, os
 from scipy.spatial import KDTree
-import constant as constant
+import units as constant
 try:
     from gizmopy.load_fire_snap import load_fire_snap
     import gizmo_analysis as ga

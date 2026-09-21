@@ -23,9 +23,12 @@ warnings.filterwarnings('ignore', category=AstropyWarning, append=True)
 from kdtree_smoothing import *
 import dreams_python
 
-# Define the data path
-main_path = '/home/trg9de/'
-sim_path = '/standard/torrey-group/'
+# Raw-snapshot locations on the cluster where the published maps were built. These are the
+# only paths in this repository that are not resolved through stars2dm_paths, because this
+# script runs against a simulation archive that no environment variable of ours can find.
+# Override both to point at your own copies.
+main_path = os.environ.get('STARS2DM_MAPGEN_WORK', './')
+sim_path = os.environ.get('STARS2DM_SIM_ARCHIVE', './simulations/')
 DREAMS_dm_type = 'CDM'
 DREAMS_mass = 'MW_zooms'
 DREAMS_dataset = 'SB5'
