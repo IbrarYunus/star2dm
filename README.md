@@ -42,7 +42,7 @@ Both: 128x128 maps, `rhostar -> rhoDM`, radially weighted loss `w(R) = 1/max(R, 
 ## Install
 
 ```bash
-conda env create -f environment.yml      # not written yet; see docs/gpu-torch-pip-freeze.txt
+conda env create -f environment.yml      # exact pins from the training environment
 pip install -e .
 python -m stars2dm_paths                 # check where the code expects data
 python tests/test_release_integrity.py   # no data needed
